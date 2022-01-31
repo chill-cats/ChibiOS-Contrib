@@ -42,48 +42,49 @@
 * Return		: None
 * Note			: None
 *****************************************************************************/
-void SPI0_Init(void)
-{
-	//Enable HCLK for SSP0
-	SN_SYS1->AHBCLKEN |= (0x1 << 12);								//Enable clock for SSP0.
+void SPI0_Init() {
+	SN_SYS1->AHBCLKEN_b.SPI0CLKEN   = 1;
+	SN_SPI0->CTRL0_b.DL             = SPI_DL_8;
 
-	//SSP0 PCLK
-	SN_SYS1->APBCP0 |= (0x00 << 20); 								//PCLK = HCLK/1
-	//SN_SYS1->APBCP0 |= (0x01 << 20);							//PCLK = HCLK/2
-	//SN_SYS1->APBCP0 |= (0x02 << 20);							//PCLK = HCLK/4
-	//SN_SYS1->APBCP0 |= (0x03 << 20);							//PCLK = HCLK/8
-	//SN_SYS1->APBCP0 |= (0x04 << 20);							//PCLK = HCLK/16
+#ifdef SN32_SPI_SLAVE_MODE
+	SN_SPI0->CTRL0_b.MS             = SPI_MS_SLAVE_MODE;
+#else
+	SN_SPI0->CTRL0_b.MS             = SPI_MS_MASTER_MODE;
+#endif
 
-	//SSP0 setting
-	SN_SSP0->CTRL0_b.DL = SSP_DL_8;									//3 ~ 16 Data length
-	SN_SSP0->CTRL0_b.FORMAT = SSP_FORMAT_SPI_MODE;	//Interface format
-	SN_SSP0->CTRL0_b.MS = SSP_MS_MASTER_MODE;				//Master/Slave selection bit
-	SN_SSP0->CTRL0_b.LOOPBACK = SSP_LOOPBACK_DIS; 	//Loop back mode
-	SN_SSP0->CTRL0_b.SDODIS = SSP_SDODIS_EN; 				//Slave data output
-																									//(ONLY used in slave mode)
+  SN_SPI0->CTRL0_b.LOOPBACK       = SPI_LOOPBACK_DIS;
+  SN_SPI0->CTRL0_b.SDODIS         = SPI_SDODIS_EN;
 
-	SN_SSP0->CLKDIV_b.DIV = (SSP_DIV/2) - 1;				//SSPn clock divider
+#ifdef SN32_SPI_RXFIFO_THRESHOLD
+  SN_SPI0->CTRL0_b.RXFIFOTH       = SN32_SPI_TXFIFO_THRESHOLD;
+#endif
 
-	//SSP0 SPI mode
-	SN_SSP0->CTRL1 = SSP_CPHA_FALLING_EDGE|					//Clock phase for edge sampling
-									 SSP_CPOL_SCK_IDLE_LOW|					//Clock polarity selection bit
-									 SSP_MLSB_MSB;									//MSB/LSB selection bit
+#ifdef SN32_SPI_TXFIFO_THRESHOLD
+  SN_SPI0->CTRL0_b.TXFIFOTH       = SN32_SPI_TXFIFO_THRESHOLD;
+#endif
 
-	//SSP0 SEL0 setting
-	SN_SSP0->CTRL0_b.SELDIS = SSP_SELDIS_DIS; 			//Auto-SEL disable bit
-	SN_GPIO2->MODE_b.MODE15=1;											//SEL(P2.15) is outout high
-	__SPI0_SET_SEL0;
+#ifdef SN32_SPI_CLKDIV
+  SN_SPI0->CLKDIV_b.DIV           = SN32_SPI_CLKDIV;
+#else
+  SN_SPI0->CLKDIV_b.DIV           = (SPI_DIV / 2) - 1;
+#endif
 
-	//SSP0 Fifo reset
+  SN_SPI0->CTRL1_b.CPHA           = SPI_CPHA_FALLING_EDGE;
+  SN_SPI0->CTRL1_b.CPOL           = SPI_CPOL_SCK_IDLE_LOW;
+  SN_SPI0->CTRL1_b.MLSB           = SPI_MLSB_MSB;
+
+#ifdef SN32_SPI_AUTOSEL
+  SN_SPI0->CTRL0_b.SELDIS         = SN32_SPI_AUTOSEL;
+#endif
+
 	__SPI0_FIFO_RESET;
+	NVIC_DisableIRQ(SPI0_IRQn);
 
-	//SSP0 interrupt disable
-	NVIC_DisableIRQ(SSP0_IRQn);
-
-	//__SSP0_DATA_FETCH_HIGH_SPEED;									//Enable if Freq. of SCK > 6MHz
-
-	//SSP0 enable
-	SN_SSP0->CTRL0_b.SSPEN  = SSP_SSPEN_EN;    			//SSP enable bit
+#if defined(SN32F260)
+  SN_SPI0->CTRL0_b.SSPEN = SPI_SPIEN_EN;
+#elif defined(SN32F240) || defined(SN32F240B)
+  SN_SPI0->CTRL0_b.SPIEN = SPI_SPIEN_EN;
+#endif
 }
 
 /*****************************************************************************
@@ -94,12 +95,15 @@ void SPI0_Init(void)
 * Return		: None
 * Note			: None
 *****************************************************************************/
-void SPI0_Enable(void)
-{
+void SPI0_Enable() {
 	//Enable HCLK for SSP0
-	SN_SYS1->AHBCLKEN |= (0x1 << 12);								//Enable clock for SSP0.
+	SN_SYS1->AHBCLKEN_b.SPI0CLKEN = 1;
 
-  SN_SSP0->CTRL0_b.SSPEN  = SSP_SSPEN_EN;    			//SSP enable bit
+#if defined(SN32F260)
+  SN_SPI0->CTRL0_b.SSPEN = SPI_SPIEN_EN;
+#elif defined(SN32F240) || defined(SN32F240B)
+  SN_SPI0->CTRL0_b.SPIEN = SPI_SPIEN_EN;
+#endif
 	__SPI0_FIFO_RESET;
 }
 
@@ -111,11 +115,28 @@ void SPI0_Enable(void)
 * Return		: None
 * Note			: None
 *****************************************************************************/
-void SPI0_Disable(void)
-{
-  SN_SSP0->CTRL0_b.SSPEN  = SSP_SSPEN_DIS;    		//SSP disable bit
+void SPI0_Disable() {
+#if defined(SN32F260)
+  SN_SPI0->CTRL0_b.SSPEN = SPI_SPIEN_DIS;
+#elif defined(SN32F240) || defined(SN32F240B)
+  SN_SPI0->CTRL0_b.SPIEN = SPI_SPIEN_DIS;
+#endif
 
 	//Disable HCLK for SSP0
-	SN_SYS1->AHBCLKEN &=~ (0x1 << 12);							//Disable clock for SSP0.
+	SN_SYS1->AHBCLKEN_b.SPI0CLKEN = 0;
 }
 
+void SPI0_Write1(uint8_t data) {
+  while (SN_SPI0->STAT_b.TX_FULL);
+  SN_SPI0->DATA = data;
+}
+
+void SPI0_Write(uint8_t *data, uint8_t len) {
+  for (uint8_t i = 0; i < len; i++) {
+    SPI0_Write1(data[i]);
+  }
+}
+
+void SPI0_Write_End() {
+  while (!SN_SPI0->STAT_b.TX_EMPTY);
+}
