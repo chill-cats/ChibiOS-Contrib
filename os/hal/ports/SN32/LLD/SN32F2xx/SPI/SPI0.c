@@ -80,11 +80,7 @@ void SPI0_Init() {
 	__SPI0_FIFO_RESET;
 	NVIC_DisableIRQ(SPI0_IRQn);
 
-#if defined(SN32F260)
-  SN_SPI0->CTRL0_b.SSPEN = SPI_SPIEN_EN;
-#elif defined(SN32F240) || defined(SN32F240B)
   SN_SPI0->CTRL0_b.SPIEN = SPI_SPIEN_EN;
-#endif
 }
 
 /*****************************************************************************
@@ -99,11 +95,8 @@ void SPI0_Enable() {
 	//Enable HCLK for SSP0
 	SN_SYS1->AHBCLKEN_b.SPI0CLKEN = 1;
 
-#if defined(SN32F260)
-  SN_SPI0->CTRL0_b.SSPEN = SPI_SPIEN_EN;
-#elif defined(SN32F240) || defined(SN32F240B)
   SN_SPI0->CTRL0_b.SPIEN = SPI_SPIEN_EN;
-#endif
+
 	__SPI0_FIFO_RESET;
 }
 
@@ -116,11 +109,7 @@ void SPI0_Enable() {
 * Note			: None
 *****************************************************************************/
 void SPI0_Disable() {
-#if defined(SN32F260)
-  SN_SPI0->CTRL0_b.SSPEN = SPI_SPIEN_DIS;
-#elif defined(SN32F240) || defined(SN32F240B)
   SN_SPI0->CTRL0_b.SPIEN = SPI_SPIEN_DIS;
-#endif
 
 	//Disable HCLK for SSP0
 	SN_SYS1->AHBCLKEN_b.SPI0CLKEN = 0;
