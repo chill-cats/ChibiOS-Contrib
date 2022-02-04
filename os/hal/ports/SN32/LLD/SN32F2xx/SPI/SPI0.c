@@ -109,11 +109,11 @@ void SPI0_Enable() {
 * Return        : None
 * Note            : None
 *****************************************************************************/
-void SPI0_Disable() {
-    sys1DisableSPI0();
+void SPI1_Disable() {
+    SN_SPI0->CTRL0_b.SPIEN = SPI_SPIEN_DIS;
 
     //Disable HCLK for SSP0
-    SN_SYS1->AHBCLKEN_b.SPI0CLKEN = 0;
+    sys1DisableSPI0();
 }
 
 void SPI0_Write1(uint8_t data) {
