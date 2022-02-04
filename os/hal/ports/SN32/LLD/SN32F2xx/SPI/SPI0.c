@@ -109,7 +109,7 @@ void SPI0_Enable() {
 * Return        : None
 * Note            : None
 *****************************************************************************/
-void SPI1_Disable() {
+void SPI0_Disable() {
     SN_SPI0->CTRL0_b.SPIEN = SPI_SPIEN_DIS;
 
     //Disable HCLK for SSP0
