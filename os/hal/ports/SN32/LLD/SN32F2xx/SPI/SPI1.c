@@ -42,7 +42,6 @@
 * Note            : None
 *****************************************************************************/
 void SPI1_Init() {
-    sys1EnableSPI1();
     SN_SPI1->CTRL0_b.DL             = SPI_DL_8;
 
 #ifdef SN32_SPI_SLAVE_MODE
@@ -84,8 +83,6 @@ void SPI1_Init() {
     }
 
     NVIC_DisableIRQ(SN32_SPI1_NUMBER);
-
-    SN_SPI1->CTRL0_b.SPIEN = SPI_SPIEN_EN;
 }
 
 /*****************************************************************************
