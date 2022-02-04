@@ -1,13 +1,13 @@
 /******************** (C) COPYRIGHT 2014 SONiX *******************************
-* COMPANY:			SONiX
-* DATE:					2014/05
-* AUTHOR:				SA1
-* IC:				SN32F240/230/220
-* DESCRIPTION:	SPI0 related functions.
+* COMPANY:            SONiX
+* DATE:                    2014/05
+* AUTHOR:                SA1
+* IC:                SN32F240/230/220
+* DESCRIPTION:    SPI0 related functions.
 *____________________________________________________________________________
-* REVISION	Date				User		Description
-* 1.0				2013/12/17	SA1			1. First release
-*	1.1				2014/05/23	SA1			1. Add __SSP0_DATA_FETCH_HIGH_SPEED macro
+* REVISION    Date                User        Description
+* 1.0                2013/12/17    SA1            1. First release
+*    1.1                2014/05/23    SA1            1. Add __SSP0_DATA_FETCH_HIGH_SPEED macro
 *
 *____________________________________________________________________________
 * THE PRESENT SOFTWARE WHICH IS FOR GUIDANCE ONLY AIMS AT PROVIDING CUSTOMERS
@@ -19,7 +19,6 @@
 *****************************************************************************/
 
 /*_____ I N C L U D E S ____________________________________________________*/
-#include <SN32F2xx.h>
 #include "SPI.h"
 
 
@@ -35,97 +34,102 @@
 /*_____ F U N C T I O N S __________________________________________________*/
 
 /*****************************************************************************
-* Function		: SPI0_Init
-* Description	: Initialization of SPI0 init
-* Input			: None
-* Output		: None
-* Return		: None
-* Note			: None
+* Function        : SPI0_Init
+* Description    : Initialization of SPI0 init
+* Input            : None
+* Output        : None
+* Return        : None
+* Note            : None
 *****************************************************************************/
 void SPI0_Init() {
-	SN_SYS1->AHBCLKEN_b.SPI0CLKEN   = 1;
-	SN_SPI0->CTRL0_b.DL             = SPI_DL_8;
+    sys1EnableSPI0();
+    SN_SPI0->CTRL0_b.DL             = SPI_DL_8;
 
 #ifdef SN32_SPI_SLAVE_MODE
-	SN_SPI0->CTRL0_b.MS             = SPI_MS_SLAVE_MODE;
+    SN_SPI0->CTRL0_b.MS             = SPI_MS_SLAVE_MODE;
+    SN_SPI0->CTRL0_b.SDODIS         = SPI_SDODIS_EN;
 #else
-	SN_SPI0->CTRL0_b.MS             = SPI_MS_MASTER_MODE;
+    SN_SPI0->CTRL0_b.MS             = SPI_MS_MASTER_MODE;
 #endif
 
-  SN_SPI0->CTRL0_b.LOOPBACK       = SPI_LOOPBACK_DIS;
-  SN_SPI0->CTRL0_b.SDODIS         = SPI_SDODIS_EN;
+    SN_SPI0->CTRL0_b.LOOPBACK       = SPI_LOOPBACK_DIS;
 
 #ifdef SN32_SPI_RXFIFO_THRESHOLD
-  SN_SPI0->CTRL0_b.RXFIFOTH       = SN32_SPI_TXFIFO_THRESHOLD;
+    SN_SPI0->CTRL0_b.RXFIFOTH       = SN32_SPI_TXFIFO_THRESHOLD;
 #endif
 
 #ifdef SN32_SPI_TXFIFO_THRESHOLD
-  SN_SPI0->CTRL0_b.TXFIFOTH       = SN32_SPI_TXFIFO_THRESHOLD;
+    SN_SPI0->CTRL0_b.TXFIFOTH       = SN32_SPI_TXFIFO_THRESHOLD;
 #endif
 
 #ifdef SN32_SPI_CLKDIV
-  SN_SPI0->CLKDIV_b.DIV           = SN32_SPI_CLKDIV;
+    SN_SPI0->CLKDIV_b.DIV           = SN32_SPI_CLKDIV;
 #else
-  SN_SPI0->CLKDIV_b.DIV           = (SPI_DIV / 2) - 1;
+    SN_SPI0->CLKDIV_b.DIV           = (SPI_DIV / 2) - 1;
 #endif
 
-  SN_SPI0->CTRL1_b.CPHA           = SPI_CPHA_FALLING_EDGE;
-  SN_SPI0->CTRL1_b.CPOL           = SPI_CPOL_SCK_IDLE_LOW;
-  SN_SPI0->CTRL1_b.MLSB           = SPI_MLSB_MSB;
+    SN_SPI0->CTRL1_b.CPHA           = SPI_CPHA_FALLING_EDGE;
+    SN_SPI0->CTRL1_b.CPOL           = SPI_CPOL_SCK_IDLE_LOW;
+    SN_SPI0->CTRL1_b.MLSB           = SPI_MLSB_MSB;
 
 #ifdef SN32_SPI_AUTOSEL
-  SN_SPI0->CTRL0_b.SELDIS         = SN32_SPI_AUTOSEL;
+    SN_SPI0->CTRL0_b.SELDIS         = SN32_SPI_AUTOSEL;
 #endif
 
-	__SPI0_FIFO_RESET;
-	NVIC_DisableIRQ(SPI0_IRQn);
+    __SPI0_FIFO_RESET;
 
-  SN_SPI0->CTRL0_b.SPIEN = SPI_SPIEN_EN;
+    uint32_t spiClock = (SN32_HCLK / ((2 * SN_SPI0->CLKDIV_b.DIV) + 2));
+    if (spiClock > 6000000) {
+        __SPI0_DATA_FETCH_HIGH_SPEED;
+    }
+
+    NVIC_DisableIRQ(SN32_SPI0_NUMBER);
+
+    SN_SPI0->CTRL0_b.SPIEN = SPI_SPIEN_EN;
 }
 
 /*****************************************************************************
-* Function		: SPI0_Enable
-* Description	: SPI0 enable setting
-* Input			: None
-* Output		: None
-* Return		: None
-* Note			: None
+* Function        : SPI0_Enable
+* Description    : SPI0 enable setting
+* Input            : None
+* Output        : None
+* Return        : None
+* Note            : None
 *****************************************************************************/
 void SPI0_Enable() {
-	//Enable HCLK for SSP0
-	SN_SYS1->AHBCLKEN_b.SPI0CLKEN = 1;
+    sys1EnableSPI0();
 
-  SN_SPI0->CTRL0_b.SPIEN = SPI_SPIEN_EN;
+    SN_SPI0->CTRL0_b.SPIEN = SPI_SPIEN_EN;
 
-	__SPI0_FIFO_RESET;
+    __SPI0_FIFO_RESET;
 }
 
 /*****************************************************************************
-* Function		: SPI0_Disable
-* Description	: SPI0 disable setting
-* Input			: None
-* Output		: None
-* Return		: None
-* Note			: None
+* Function        : SPI0_Disable
+* Description    : SPI0 disable setting
+* Input            : None
+* Output        : None
+* Return        : None
+* Note            : None
 *****************************************************************************/
 void SPI0_Disable() {
-  SN_SPI0->CTRL0_b.SPIEN = SPI_SPIEN_DIS;
+    sys1DisableSPI0();
 
-	//Disable HCLK for SSP0
-	SN_SYS1->AHBCLKEN_b.SPI0CLKEN = 0;
+    //Disable HCLK for SSP0
+    SN_SYS1->AHBCLKEN_b.SPI0CLKEN = 0;
 }
 
 void SPI0_Write1(uint8_t data) {
-  while (SN_SPI0->STAT_b.TX_FULL);
-  SN_SPI0->DATA = data;
+    while (SN_SPI0->STAT_b.TX_FULL);
+    SN_SPI0->DATA = data;
 }
 
 void SPI0_Write(uint8_t *data, uint8_t len) {
-  for (uint8_t i = 0; i < len; i++) {
-    SPI0_Write1(data[i]);
-  }
+    for (uint8_t i = 0; i < len; i++) {
+        SPI0_Write1(data[i]);
+    }
 }
 
 void SPI0_Write_End() {
-  while (!SN_SPI0->STAT_b.TX_EMPTY);
+    while (!SN_SPI0->STAT_b.TX_EMPTY);
 }
