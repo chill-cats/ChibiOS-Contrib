@@ -42,6 +42,7 @@
 * Note            : None
 *****************************************************************************/
 void SPI0_Init() {
+    sys1EnableSPI0();
     SN_SPI0->CTRL0_b.DL             = SPI_DL_8;
 
 #ifdef SN32_SPI_SLAVE_MODE
