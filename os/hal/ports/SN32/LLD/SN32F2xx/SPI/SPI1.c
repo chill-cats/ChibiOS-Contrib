@@ -131,3 +131,18 @@ void SPI1_Write(uint8_t *data, uint8_t len) {
 void SPI1_Write_End() {
     while (!SN_SPI1->STAT_b.TX_EMPTY);
 }
+
+void SPI1_Read1(uint8_t *data) {
+    *data = SN_SPI1->DATA;
+}
+
+void SPI1_Read(uint8_t *buf, uint8_t len) {
+    for (uint8_t i = 0; i < len; i++) {
+        while (!SPI0_Has_Data());
+        SPI1_Read1(&buf[i]);
+    }
+}
+
+bool SPI1_Has_Data() {
+    return !SN_SPI1->STAT_b.RX_EMPTY;
+}

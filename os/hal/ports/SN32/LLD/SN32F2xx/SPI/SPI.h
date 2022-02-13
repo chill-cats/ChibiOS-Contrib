@@ -180,6 +180,9 @@ extern void SPI0_Disable(void);
 extern void SPI0_Write1(uint8_t data);
 extern void SPI0_Write(uint8_t *data, uint8_t len);
 extern void SPI0_Write_End(void);
+extern void SPI0_Read1(uint8_t *data);
+extern void SPI0_Read(uint8_t *buf, uint8_t len);
+extern bool SPI0_Has_Data(void);
 
 extern void SPI1_Init(void);
 extern void SPI1_Enable(void);
@@ -187,4 +190,7 @@ extern void SPI1_Disable(void);
 extern void SPI1_Write1(uint8_t data);
 extern void SPI1_Write(uint8_t *data, uint8_t len);
 extern void SPI1_Write_End(void);
+extern void SPI1_Read1(uint8_t *data);
+extern void SPI1_Read(uint8_t *buf, uint8_t len);
+extern bool SPI1_Has_Data(void);
 #endif    /*__SN32F2xx_SPI_H*/
