@@ -76,14 +76,24 @@ void SPI0_Init() {
     SN_SPI0->CTRL0_b.SELDIS         = SN32_SPI_AUTOSEL;
 #endif
 
-    __SPI0_FIFO_RESET;
 
     uint32_t spiClock = (SN32_HCLK / ((2 * SN_SPI0->CLKDIV_b.DIV) + 2));
     if (spiClock > 6000000) {
         __SPI0_DATA_FETCH_HIGH_SPEED;
     }
 
-    NVIC_DisableIRQ(SN32_SPI0_NUMBER);
+    __SPI0_FIFO_RESET;
+
+    SN_SPI0->IC = mskSPI_RXOVFIC | mskSPI_RXTOIC | mskSPI_RXFIFOTHIC | mskSPI_TXFIFOTHIC;
+    SN_SPI0->IE = mskSPI_TXFIFOTHIE_DIS | mskSPI_RXFIFOTHIE_EN;
+
+    NVIC_ClearPendingIRQ(SN32_SPI0_NUMBER);
+    NVIC_EnableIRQ(SN32_SPI0_NUMBER);
+#ifdef SN32_SPI0_INTERRUPT_PRIO
+    NVIC_SetPriority(SN32_SPI0_NUMBER, SN32_SPI0_INTERRUPT_PRIO);
+#else
+    NVIC_SetPriority(SN32_SPI0_NUMBER, 3);
+#endif
 }
 
 /*****************************************************************************
