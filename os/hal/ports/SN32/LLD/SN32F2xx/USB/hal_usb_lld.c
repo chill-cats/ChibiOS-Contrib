@@ -185,8 +185,6 @@ static void sn32_usb_write_fifo(usbep_t ep, const uint8_t *buf, size_t sz, bool 
     }
 }
 
-void rgb_matrix_disable_noeeprom(void);
-
 /**
  * @brief   USB shared ISR.
  *
@@ -199,15 +197,16 @@ static void usb_lld_serve_interrupt(USBDriver *usbp)
     uint32_t iwIntFlag;
     size_t n;
 
-    //** Get Interrupt Status and clear immediately.
+    /* Get Interrupt Status and clear immediately. */
     iwIntFlag = SN32_USB->INSTS;
-    //Clear flags right away for interrupts that we dont handle, keep other untill fully handled
-    SN32_USB->INSTSC = 0x0007F0F0;
+    /* Keep only PRESETUP & ERR_SETUP flags. */
+    SN32_USB->INSTSC = ~(mskEP0_PRESETUP | mskERR_SETUP);
 
-    if(iwIntFlag == 0)
+    if ((iwIntFlag == 0) | (iwIntFlag & mskBUS_WAKEUP))
     {
         //@20160902 add for EMC protection
-        USB_ReturntoNormal();
+        SN32_USB->CFG |= (mskESD_EN|mskPHY_EN);
+        __USB_CLRINSTS(mskBUS_WAKEUP);
         return;
     }
 
@@ -219,26 +218,21 @@ static void usb_lld_serve_interrupt(USBDriver *usbp)
         if (iwIntFlag & mskBUS_RESET)
         {
             /* BusReset */
-            USB_ReturntoNormal();
-            USB_ResetEvent();
+            SN32_USB->CFG |= (mskESD_EN|mskPHY_EN);
+            __USB_CLRINSTS(mskBUS_RESET);
             _usb_reset(usbp);
         }
         else if (iwIntFlag & mskBUS_SUSPEND)
         {
             /* Suspend */
+            SN32_USB->CFG &= ~(mskESD_EN|mskPHY_EN);
             __USB_CLRINSTS(mskBUS_SUSPEND);
             _usb_suspend(usbp);
-            //USB suspend will put MCU in sleep mode with lower clock
-            //and disable execution of user code allowing only interrupt to execute
-            //keeping it here just for reference on how to could be done
-            //not necessary for remote wakeup to work
-            //uncomment if want to experiment with suspend mode
-            //USB_SuspendEvent();
         }
         else if(iwIntFlag & mskBUS_RESUME)
         {
             /* Resume */
-            USB_ReturntoNormal();
+            SN32_USB->CFG |= (mskESD_EN|mskPHY_EN);
             __USB_CLRINSTS(mskBUS_RESUME);
             _usb_wakeup(usbp);
         }
@@ -360,51 +354,27 @@ static void usb_lld_serve_interrupt(USBDriver *usbp)
     /////////////////////////////////////////////////
     else if (iwIntFlag & (mskEP4_ACK|mskEP3_ACK|mskEP2_ACK|mskEP1_ACK))
     {
+        usbep_t ep;
         // Determine the interrupting endpoint, direction, and clear the interrupt flag
-        if(iwIntFlag & mskEP1_ACK)
-        {
-            handleACK(usbp, USB_EP1);
-            __USB_CLRINSTS(mskEP1_ACK);
+        for(int i=1; i <= USB_MAX_ENDPOINTS; i++) {
+            if (iwIntFlag & mskEPn_ACK(i)){
+                ep = i;
+            }
         }
-        if(iwIntFlag & mskEP2_ACK)
-        {
-            handleACK(usbp, USB_EP2);
-            __USB_CLRINSTS(mskEP2_ACK);
-        }
-        if(iwIntFlag & mskEP3_ACK)
-        {
-            handleACK(usbp, USB_EP3);
-            __USB_CLRINSTS(mskEP3_ACK);
-        }
-        if(iwIntFlag & mskEP4_ACK)
-        {
-            handleACK(usbp, USB_EP4);
-            __USB_CLRINSTS(mskEP4_ACK);
-        }
+        handleACK(usbp, ep);
+        __USB_CLRINSTS(mskEPn_ACK(ep));
     }
     else if (iwIntFlag & (mskEP4_NAK|mskEP3_NAK|mskEP2_NAK|mskEP1_NAK))
     {
+        usbep_t ep;
         // Determine the interrupting endpoint, direction, and clear the interrupt flag
-        if (iwIntFlag & mskEP1_NAK)
-        {
-            handleNAK(usbp, USB_EP1);
-            __USB_CLRINSTS(mskEP1_NAK);
+        for(int i=1; i <= USB_MAX_ENDPOINTS; i++) {
+            if (iwIntFlag & mskEPn_NAK(i)){
+                ep = i;
+            }
         }
-        if (iwIntFlag & mskEP2_NAK)
-        {
-            handleNAK(usbp, USB_EP2);
-            __USB_CLRINSTS(mskEP2_NAK);
-        }
-        if (iwIntFlag & mskEP3_NAK)
-        {
-            handleNAK(usbp, USB_EP3);
-            __USB_CLRINSTS(mskEP3_NAK);
-        }
-        if (iwIntFlag & mskEP4_NAK)
-        {
-            handleNAK(usbp, USB_EP4);
-            __USB_CLRINSTS(mskEP4_NAK);
-        }
+        handleNAK(usbp, ep);
+        __USB_CLRINSTS(mskEPn_NAK(ep));
     }
 
     /////////////////////////////////////////////////
@@ -683,6 +653,7 @@ void usb_lld_reset(USBDriver *usbp) {
     /* Set the address to zero during enumeration */
     usbp->address = 0;
     SN32_USB->ADDR  = 0;
+    USB_EPnStall(USB_EP0);
 
     /* EP0 initialization.*/
     usbp->epc[0] = &ep0config;
