@@ -337,7 +337,7 @@ struct USBDriver {
  *
  * @notapi
  */
-#define usb_lld_get_frame_number(usbp) 0
+#define usb_lld_get_frame_number(usbp) (SN32_USB->FRMNO & mskFRAME_NO)
 
 /**
  * @brief   Returns the exact size of a receive transaction.
@@ -375,9 +375,14 @@ struct USBDriver {
  *
  * @notapi
  */
-#define usb_lld_wakeup_host(usbp) { \
-    USB_RemoteWakeUp();             \
-}
+#define usb_lld_wakeup_host(usbp)                                           \
+  do {                                                                      \
+    SN32_USB->SGCTL = (mskBUS_DRVEN|mskBUS_J_STATE);                        \
+    osalThreadSleepMilliseconds(180);                                       \
+    SN32_USB->SGCTL = (mskBUS_DRVEN|mskBUS_K_STATE);                        \
+    osalThreadSleepMilliseconds(10);                                        \
+    SN32_USB->SGCTL &= ~mskBUS_DRVEN;                                       \
+  } while (false)
 
 /*===========================================================================*/
 /* External declarations.                                                    */
