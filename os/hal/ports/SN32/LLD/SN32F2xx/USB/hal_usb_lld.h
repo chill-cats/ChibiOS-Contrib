@@ -28,7 +28,6 @@
 #if (HAL_USE_USB == TRUE) || defined(__DOXYGEN__)
 
 #include "sn32_usb.h"
-#include "usbhw.h"
 
 /*===========================================================================*/
 /* Driver constants.                                                         */
@@ -200,7 +199,6 @@ typedef struct {
    */
   USBOutEndpointState           *out_state;
   /* End of the mandatory fields.*/
-  /* End of the mandatory fields.*/
   /**
    * @brief   Reserved field, not currently used.
    * @note    Initialize this field to 1 in order to be forward compatible.
@@ -361,14 +359,21 @@ struct USBDriver {
  *
  * @api
  */
-#define usb_lld_connect_bus(usbp)
+#define usb_lld_connect_bus(usbp)                                           \
+  do {                                                                      \
+    SN32_USB->CFG |= mskDPPU_EN;                                            \
+  } while (false)
 
 /**
  * @brief   Disconnect the USB device.
  *
  * @api
  */
-#define usb_lld_disconnect_bus(usbp)
+#define usb_lld_disconnect_bus(usbp)                                        \
+  do {                                                                      \
+    SN32_USB->CFG &= ~mskDPPU_EN;                                           \
+  } while (false)
+
 
 /**
  * @brief   Start of host wake-up procedure.
@@ -387,27 +392,6 @@ struct USBDriver {
 /*===========================================================================*/
 /* External declarations.                                                    */
 /*===========================================================================*/
-
-/* Descriptor related */
-/* bmAttributes in Endpoint Descriptor */
-#define USB_ENDPOINT_TYPE_MASK                  0x03
-#define USB_ENDPOINT_TYPE_CONTROL               0x00
-#define USB_ENDPOINT_TYPE_ISOCHRONOUS           0x01
-#define USB_ENDPOINT_TYPE_BULK                  0x02
-#define USB_ENDPOINT_TYPE_INTERRUPT             0x03
-#define USB_ENDPOINT_SYNC_MASK                  0x0C
-#define USB_ENDPOINT_SYNC_NO_SYNCHRONIZATION    0x00
-#define USB_ENDPOINT_SYNC_ASYNCHRONOUS          0x04
-#define USB_ENDPOINT_SYNC_ADAPTIVE              0x08
-#define USB_ENDPOINT_SYNC_SYNCHRONOUS           0x0C
-#define USB_ENDPOINT_USAGE_MASK                 0x30
-#define USB_ENDPOINT_USAGE_DATA                 0x00
-#define USB_ENDPOINT_USAGE_FEEDBACK             0x10
-#define USB_ENDPOINT_USAGE_IMPLICIT_FEEDBACK    0x20
-#define USB_ENDPOINT_USAGE_RESERVED             0x30
-
-/* bEndpointAddress in Endpoint Descriptor */
-#define USB_ENDPOINT_DIRECTION_MASK             0x80
 
 #if (SN32_USB_USE_USB1 == TRUE) && !defined(__DOXYGEN__)
 extern USBDriver USBD1;
@@ -434,6 +418,8 @@ extern "C" {
     void usb_lld_stall_in(USBDriver *usbp, usbep_t ep);
     void usb_lld_clear_out(USBDriver *usbp, usbep_t ep);
     void usb_lld_clear_in(USBDriver *usbp, usbep_t ep);
+    void handleACK(USBDriver* usbp, usbep_t ep);
+    void handleNAK(USBDriver* usbp, usbep_t ep);
 #ifdef __cplusplus
 }
 #endif

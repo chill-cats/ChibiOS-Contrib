@@ -183,30 +183,4 @@
 #define USB_EP3                                 0x3
 #define USB_EP4                                 0x4
 
-
-extern const uint32_t wUSB_EPnOffset[];
-extern const uint32_t wUSB_EPnMaxPacketSize[];
-
-/* USB Hardware Functions */
-extern void USB_Buf_Init(void);
-extern void USB_Init(void);
-extern void USB_ClrEPnToggle(uint32_t wEPNum);
-extern void USB_EPnDisable(uint32_t wEPNum);
-extern void USB_EPnNak(uint32_t wEPNum);
-extern void USB_EPnAck(uint32_t wEPNum, uint8_t bBytecnt);
-extern void USB_EPnStall(uint32_t wEPNum);
-extern _Bool USB_EPnEnabled(uint32_t wEPNum);
-extern _Bool USB_EPnStalled(uint32_t wEPNum);
-
-extern void USB_RemoteWakeUp(void);
-extern void USB_DelayJstate(void);
-extern void USB_DelayKstate(void);
-extern void USB_EPnBufferOffset(uint32_t wEPNum, uint32_t wAddr);
-
-/* USB IRQ Functions*/
-extern void USB_ReturntoNormal(void);
-extern void USB_ResetEvent(void);
-extern void USB_WakeupEvent(void);
-extern void USB_SuspendEvent(void);
-
 #endif  /* __USBHW_H__ */

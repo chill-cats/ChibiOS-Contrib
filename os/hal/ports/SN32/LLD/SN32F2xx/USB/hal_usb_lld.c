@@ -22,10 +22,8 @@
  * @{
  */
 
-#include <SN32F2xx.h>
 #include <string.h>
 #include "hal.h"
-#include "usbhw.h"
 
 #if (HAL_USE_USB == TRUE) || defined(__DOXYGEN__)
 
@@ -67,21 +65,25 @@ static union {
 } ep0_state;
 
 /**
+ * @brief   Buffer for the EP0 setup packets.
+ */
+static uint8_t ep0setup_buffer[8];
+
+/**
  * @brief   EP0 initialization structure.
  */
 static const USBEndpointConfig ep0config = {
-    USB_ENDPOINT_TYPE_CONTROL,
-    _usb_ep0setup,
-    _usb_ep0in,
-    _usb_ep0out,
-    0x40,
-    0x40,
-    &ep0_state.in,
-    &ep0_state.out
+  .ep_mode          = USB_EP_MODE_TYPE_CTRL,
+  .setup_cb         = _usb_ep0setup,
+  .in_cb            = _usb_ep0in,
+  .out_cb           = _usb_ep0out,
+  .in_maxsize       = 0x40,
+  .out_maxsize      = 0x40,
+  .in_state         = &ep0_state.in,
+  .out_state        = &ep0_state.out,
+  .ep_buffers       = 1,
+  .setup_buf        = ep0setup_buffer
 };
-void rgb_matrix_toggle(void);
-void handleACK(USBDriver* usbp, usbep_t ep);
-void handleNAK(USBDriver* usbp, usbep_t ep);
 #if (USB_USE_WAIT == TRUE) || defined(__DOXYGEN__)
 #define _usb_isr_invoke_tx_complete_cb(usbp, ep) {                          \
   (usbp)->transmitting &= ~(1 << (ep));                                     \
@@ -586,10 +588,10 @@ OSAL_IRQ_HANDLER(SN32_USB_HANDLER) {
  * @notapi
  */
 void usb_lld_init(void) {
-    #if SN32_USB_USE_USB1 == TRUE
+#if SN32_USB_USE_USB1 == TRUE
     /* Driver initialization.*/
     usbObjectInit(&USBD1);
-    #endif
+#endif
 }
 
 /**
@@ -621,17 +623,8 @@ void usb_lld_start(USBDriver *usbp) {
       /* Set up hardware configuration.*/
       SN32_USB->PHYPRM = 0x80000000;
       SN32_USB->PHYPRM2 = 0x00004004;
-      /* Enabling the USB IRQ vectors, this also gives enough time to allow
-         the transceiver power up (1uS).*/
-      SN32_USB->INTEN = (mskBUS_IE|mskUSB_IE|mskEPnACK_EN|mskBUSWK_IE|mskUSB_SOF_IE);
-      SN32_USB->INTEN |= mskEP1_NAK_EN;
-      SN32_USB->INTEN |= mskEP2_NAK_EN;
-      SN32_USB->INTEN |= mskEP3_NAK_EN;
-      SN32_USB->INTEN |= mskEP4_NAK_EN;
-#if (USB_ENDPOINTS_NUMBER > 4)
-      SN32_USB->INTEN |= mskEP5_NAK_EN;
-      SN32_USB->INTEN |= mskEP6_NAK_EN;
-#endif /* (USB_ENDPOINTS_NUMBER > 4) */
+      /* Enable the USB Bus Interrupts.*/
+      SN32_USB->INTEN = mskBUS_IE;
 
       nvicEnableVector(SN32_USB_NUMBER, SN32_USB_IRQ_PRIORITY);
     }
@@ -671,14 +664,22 @@ void usb_lld_stop(USBDriver *usbp) {
 void usb_lld_reset(USBDriver *usbp) {
     /* Post reset initialization.*/
     SN32_USB->INSTSC = (0xFFFFFFFF);
-    /* Set the address to zero during enumeration */
+
+    /* Set the address to zero during enumeration.*/
     usbp->address = 0;
     SN32_USB->ADDR  = 0;
-    usb_lld_stall_in(usbp, 0);
 
     /* EP0 initialization.*/
     usbp->epc[0] = &ep0config;
     usb_lld_init_endpoint(usbp, 0);
+
+    /* Enable other interrupts.*/
+    SN32_USB->INTEN |= (mskUSB_IE|mskEPnACK_EN|mskBUSWK_IE|mskUSB_SOF_IE);
+    SN32_USB->INTEN |= (mskEP1_NAK_EN|mskEP2_NAK_EN|mskEP3_NAK_EN|mskEP4_NAK_EN);
+#if (USB_ENDPOINTS_NUMBER > 4)
+    SN32_USB->INTEN |= (mskEP5_NAK_EN|mskEP6_NAK_EN);
+#endif /* (USB_ENDPOINTS_NUMBER > 4) */
+
 }
 
 /**
@@ -733,7 +734,10 @@ void usb_lld_init_endpoint(USBDriver *usbp, usbep_t ep) {
     }
 
     /* Enable endpoint. */
-    if(ep > 0 && ep <= USB_MAX_ENDPOINTS) {
+    if(ep ==0) {
+        usb_lld_stall_in(usbp, 0);
+    }
+    else if(ep <= USB_MAX_ENDPOINTS) {
         SN32_USB->EPCTL[ep] |= mskEPn_ENDP_EN;
     }
 }
@@ -774,15 +778,6 @@ usbepstatus_t usb_lld_get_status_out(USBDriver *usbp, usbep_t ep) {
     if ((SN32_USB->EPCTL[ep] & mskEPn_ENDP_STATE) == mskEPn_ENDP_STATE_STALL)
         return EP_STATUS_STALLED;
     return EP_STATUS_ACTIVE;
-/*
-    if (SN32_USB->INSTS & mskEP0_OUT) {
-        return EP_STATUS_DISABLED;
-    } else if (SN32_USB->INSTS & mskEP0_OUT_STALL) {
-        return EP_STATUS_STALLED;
-    } else {
-        return EP_STATUS_ACTIVE;
-    }
-*/
 }
 
 /**
@@ -806,15 +801,6 @@ usbepstatus_t usb_lld_get_status_in(USBDriver *usbp, usbep_t ep) {
     if ((SN32_USB->EPCTL[ep] & mskEPn_ENDP_STATE) == mskEPn_ENDP_STATE_STALL)
         return EP_STATUS_STALLED;
     return EP_STATUS_ACTIVE;
-/*
-   if (SN32_USB->INSTS & mskEP0_IN) {
-       return EP_STATUS_DISABLED;
-   } else if (SN32_USB->INSTS & mskEP0_IN_STALL) {
-       return EP_STATUS_STALLED;
-   } else {
-       return EP_STATUS_ACTIVE;
-   }
-*/
 }
 
 /**

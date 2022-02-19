@@ -27,6 +27,7 @@
 #define SN32_USB_H
 
 #include "usbhw.h"
+
 /**
  * @brief   Number of the available endpoints.
  * @details This value does not include the endpoint 0 which is always present.
