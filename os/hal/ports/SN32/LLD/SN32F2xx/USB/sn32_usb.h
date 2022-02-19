@@ -97,9 +97,9 @@
 #define mskEPn_DIR(ep)          (0x1<<(ep-1))
 #define mskEPn_DATA_TOGGLE(ep)      (0x1<<(ep-1))
 
-#define EPCTL_SET_STAT_TX(ep, bBytecnt)                                   \
+#define EPCTL_SET_STAT_ACK(ep, bBytecnt)                                  \
   SN32_USB->EPCTL[ep] = (mskEPn_ENDP_EN|mskEPn_ENDP_STATE_ACK|bBytecnt)
-#define EPCTL_SET_STAT_RX(ep)                                             \
+#define EPCTL_SET_STAT_NAK(ep)                                            \
   SN32_USB->EPCTL[ep] = (mskEPn_ENDP_EN)
 #define EPCTL_SET_STAT_STALL(ep)                                          \
   SN32_USB->EPCTL[ep] = (mskEPn_ENDP_EN|mskEPn_ENDP_STATE_STALL)

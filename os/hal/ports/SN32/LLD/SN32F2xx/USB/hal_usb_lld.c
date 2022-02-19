@@ -293,11 +293,11 @@ static void usb_lld_serve_interrupt(USBDriver *usbp)
 
                 sn32_usb_write_fifo(0, isp->txbuf, n, true);
 
-                EPCTL_SET_STAT_TX(USB_EP0, n);
+                EPCTL_SET_STAT_ACK(USB_EP0, n);
             }
             else
             {
-                //EPCTL_SET_STAT_RX(USB_EP0); //not needed
+                //EPCTL_SET_STAT_NAK(USB_EP0); //not needed
 
                 _usb_isr_invoke_in_cb(usbp, 0);
             }
@@ -341,12 +341,12 @@ static void usb_lld_serve_interrupt(USBDriver *usbp)
             if (epcp->out_state->rxpkts == 0)
             {
                 //done with transfer
-                //EPCTL_SET_STAT_RX(USB_EP0); //useless mcu resets it anyways
+                //EPCTL_SET_STAT_NAK(USB_EP0); //useless mcu resets it anyways
                 _usb_isr_invoke_out_cb(usbp, 0);
             }
             else {
                 //more to receive
-                EPCTL_SET_STAT_TX(USB_EP0, 0);
+                EPCTL_SET_STAT_ACK(USB_EP0, 0);
             }
             __USB_CLRINSTS(mskEP0_OUT);
 
@@ -458,7 +458,7 @@ void handleACK(USBDriver* usbp, usbep_t ep) {
         else
         {
             //not done. keep on receiving
-            EPCTL_SET_STAT_TX(ep, 0);
+            EPCTL_SET_STAT_ACK(ep, 0);
         }
     }
     else
@@ -481,11 +481,11 @@ void handleACK(USBDriver* usbp, usbep_t ep) {
 
             sn32_usb_write_fifo(ep, isp->txbuf, n, true);
 
-            EPCTL_SET_STAT_TX(ep, n);
+            EPCTL_SET_STAT_ACK(ep, n);
         }
         else
         {
-            //EPCTL_SET_STAT_RX(ep); //not needed here it is autoreset to NAK already
+            //EPCTL_SET_STAT_NAK(ep); //not needed here it is autoreset to NAK already
 
             _usb_isr_invoke_in_cb(usbp, ep);
         }
@@ -545,7 +545,7 @@ void handleNAK(USBDriver *usbp, usbep_t ep) {
             else if (nakcnt[ep] > 2) {
                 //3-10
                 nakcnt[ep]++;
-                EPCTL_SET_STAT_TX(ep, 0);
+                EPCTL_SET_STAT_ACK(ep, 0);
             }
             else {
                 //1-2
@@ -852,7 +852,7 @@ void usb_lld_start_out(USBDriver *usbp, usbep_t ep) {
         osp->rxpkts = (uint16_t)((osp->rxsize + usbp->epc[ep]->out_maxsize - 1) /
                                     usbp->epc[ep]->out_maxsize);
     osp->rxcnt = 0;//haven't received anything yet
-    EPCTL_SET_STAT_TX(ep, 0);
+    EPCTL_SET_STAT_ACK(ep, 0);
 }
 
 /**
@@ -882,7 +882,7 @@ void usb_lld_start_in(USBDriver *usbp, usbep_t ep)
         sn32_usb_write_fifo(ep, isp->txbuf, n, false);
 
         nakcnt[ep] = 1;
-        EPCTL_SET_STAT_TX(ep, n);
+        EPCTL_SET_STAT_ACK(ep, n);
     }
     else
     {
@@ -932,10 +932,11 @@ void usb_lld_stall_in(USBDriver *usbp, usbep_t ep) {
  * @notapi
  */
 void usb_lld_clear_out(USBDriver *usbp, usbep_t ep) {
-    if (ep > USB_MAX_ENDPOINTS)
-        return;
-    EPCTL_SET_STAT_RX(ep);
-    //__USB_CLRINSTS(mskEP0_OUT);
+    (void)usbp;
+    /* Makes sure to not put to NAK an endpoint that is already
+       transferring.*/
+    if (!(SN32_USB->EPCTL[ep] & mskEPn_ENDP_STATE_NAK))
+        EPCTL_SET_STAT_NAK(ep);
 }
 
 /**
@@ -947,10 +948,11 @@ void usb_lld_clear_out(USBDriver *usbp, usbep_t ep) {
  * @notapi
  */
 void usb_lld_clear_in(USBDriver *usbp, usbep_t ep) {
-    if (ep > USB_MAX_ENDPOINTS)
-        return;
-    EPCTL_SET_STAT_RX(ep);
-    //__USB_CLRINSTS(mskEP0_IN);
+    (void)usbp;
+    /* Makes sure to not put to NAK an endpoint that is already
+       transferring.*/
+    if (!(SN32_USB->EPCTL[ep] & mskEPn_ENDP_STATE_NAK))
+        EPCTL_SET_STAT_NAK(ep);
 }
 
 #endif /* HAL_USE_USB == TRUE */
