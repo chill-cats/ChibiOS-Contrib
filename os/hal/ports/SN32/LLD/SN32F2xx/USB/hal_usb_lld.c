@@ -32,7 +32,6 @@
 /*===========================================================================*/
 /* Driver local definitions.                                                 */
 /*===========================================================================*/
-#define SN32_USB_PMA_SIZE      256
 
 /*===========================================================================*/
 /* Driver exported variables.                                                */
@@ -250,6 +249,10 @@ static void usb_lld_serve_interrupt(USBDriver *usbp)
     /////////////////////////////////////////////////
     /* Device Status Interrupt (SETUP, IN, OUT)      */
     /////////////////////////////////////////////////
+    else if (iwIntFlag & mskERR_SETUP) {
+        __USB_CLRINSTS(mskERR_SETUP);
+        usb_lld_stall_in(usbp, 0);
+    }
     else if (iwIntFlag & (mskEP0_SETUP|mskEP0_IN|mskEP0_OUT|mskEP0_IN_STALL|mskEP0_OUT_STALL))
     {
         const USBEndpointConfig *epcp = usbp->epc[0];
@@ -646,14 +649,15 @@ void usb_lld_start(USBDriver *usbp) {
  * @notapi
  */
 void usb_lld_stop(USBDriver *usbp) {
-    if (usbp->state == USB_READY) {
-        /* Resets the peripheral.*/
-
-        /* Disables the peripheral.*/
-        #if SN32_USB_USE_USB1 == TRUE
-        if (&USBD1 == usbp) {
-        }
-        #endif
+  /* If in ready state then disables the USB clock.*/
+  if (usbp->state != USB_STOP) {
+#if SN32_USB_USE_USB1 == TRUE
+    /* Disables the peripheral.*/
+    if (&USBD1 == usbp) {
+        nvicDisableVector(SN32_USB_NUMBER);
+        sys1DisableUSB();
+    }
+#endif
   }
 }
 
@@ -900,7 +904,7 @@ void usb_lld_start_in(USBDriver *usbp, usbep_t ep)
  * @notapi
  */
 void usb_lld_stall_out(USBDriver *usbp, usbep_t ep) {
-
+    (void)usbp;
     if (ep == 0 && (SN32_USB->INSTS & mskEP0_PRESETUP)) {
         return;
     }
@@ -916,7 +920,7 @@ void usb_lld_stall_out(USBDriver *usbp, usbep_t ep) {
  * @notapi
  */
 void usb_lld_stall_in(USBDriver *usbp, usbep_t ep) {
-
+    (void)usbp;
     if (ep == 0 && (SN32_USB->INSTS & mskEP0_PRESETUP)) {
         return;
     }
