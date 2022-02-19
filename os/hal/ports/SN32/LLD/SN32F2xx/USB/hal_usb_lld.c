@@ -264,11 +264,12 @@ static void usb_lld_serve_interrupt(USBDriver *usbp)
             /* SETUP */
             /* Clear receiving in the chibios state machine */
             (usbp)->receiving &= ~1;
+            __USB_CLRINSTS(mskEP0_PRESETUP);
             /* Call SETUP function (ChibiOS core), which prepares
              * for send or receive and releases the buffer
              */
             _usb_isr_invoke_setup_cb(usbp, 0);
-            __USB_CLRINSTS((mskEP0_SETUP|mskEP0_PRESETUP|mskEP0_OUT_STALL|mskEP0_IN_STALL));
+            __USB_CLRINSTS(mskEP0_SETUP);
         }
         else if (iwIntFlag & mskEP0_IN)
         {
@@ -356,11 +357,17 @@ static void usb_lld_serve_interrupt(USBDriver *usbp)
             __USB_CLRINSTS(mskEP0_OUT);
 
         }
-        else if (iwIntFlag & (mskEP0_IN_STALL|mskEP0_OUT_STALL))
+        else if (iwIntFlag & (mskEP0_IN_STALL))
         {
-            /* EP0_IN_OUT_STALL */
+            /* EP0_IN_STALL */
             usb_lld_stall_in(usbp, 0);
-            SN32_USB->INSTSC = (mskEP0_IN_STALL|mskEP0_OUT_STALL);
+            SN32_USB->INSTSC = (mskEP0_IN_STALL);
+        }
+        else if (iwIntFlag & (mskEP0_OUT_STALL))
+        {
+            /* EP0_OUT_STALL */
+            usb_lld_stall_out(usbp, 0);
+            SN32_USB->INSTSC = (mskEP0_OUT_STALL);
         }
     }
     /////////////////////////////////////////////////
@@ -891,8 +898,14 @@ void usb_lld_start_in(USBDriver *usbp, usbep_t ep)
  */
 void usb_lld_stall_out(USBDriver *usbp, usbep_t ep) {
     (void)usbp;
-    if (ep == 0 && (SN32_USB->INSTS & mskEP0_PRESETUP)) {
-        return;
+    if (ep == 0 ) {
+        if (SN32_USB->INSTS & mskEP0_PRESETUP) {
+            return;
+        }
+        if (SN32_USB->INSTS & mskEP0_OUT_STALL) {
+            SN32_USB->EPCTL[ep] |= mskEP0_OUT_STALL_EN;
+            return;
+        }
     }
     EPCTL_SET_STAT_STALL(ep);
 }
@@ -907,8 +920,14 @@ void usb_lld_stall_out(USBDriver *usbp, usbep_t ep) {
  */
 void usb_lld_stall_in(USBDriver *usbp, usbep_t ep) {
     (void)usbp;
-    if (ep == 0 && (SN32_USB->INSTS & mskEP0_PRESETUP)) {
-        return;
+    if (ep == 0 ) {
+        if (SN32_USB->INSTS & mskEP0_PRESETUP) {
+            return;
+        }
+        if (SN32_USB->INSTS & mskEP0_IN_STALL) {
+            SN32_USB->EPCTL[ep] |= mskEP0_IN_STALL_EN;
+            return;
+        }
     }
     EPCTL_SET_STAT_STALL(ep);
 }
