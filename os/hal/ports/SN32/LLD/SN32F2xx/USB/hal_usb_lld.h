@@ -67,8 +67,8 @@
  * @details If set to @p TRUE the support for USB1 is included.
  * @note    The default is @p FALSE.
  */
-#if !defined(PLATFORM_USB_USE_USB1) || defined(__DOXYGEN__)
-#define PLATFORM_USB_USE_USB1                  TRUE
+#if !defined(SN32_USB_USE_USB1) || defined(__DOXYGEN__)
+#define SN32_USB_USE_USB1                  TRUE
 #endif
 
 /**
@@ -409,7 +409,7 @@ struct USBDriver {
 /* bEndpointAddress in Endpoint Descriptor */
 #define USB_ENDPOINT_DIRECTION_MASK             0x80
 
-#if (PLATFORM_USB_USE_USB1 == TRUE) && !defined(__DOXYGEN__)
+#if (SN32_USB_USE_USB1 == TRUE) && !defined(__DOXYGEN__)
 extern USBDriver USBD1;
 #endif
 

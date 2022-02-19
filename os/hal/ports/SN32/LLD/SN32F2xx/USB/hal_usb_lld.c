@@ -41,7 +41,7 @@
 /**
  * @brief   USB1 driver identifier.
  */
-#if (PLATFORM_USB_USE_USB1 == TRUE) || defined(__DOXYGEN__)
+#if (SN32_USB_USE_USB1 == TRUE) || defined(__DOXYGEN__)
 USBDriver USBD1;
 #endif
 
@@ -574,7 +574,7 @@ OSAL_IRQ_HANDLER(SN32_USB_HANDLER) {
  * @notapi
  */
 void usb_lld_init(void) {
-    #if PLATFORM_USB_USE_USB1 == TRUE
+    #if SN32_USB_USE_USB1 == TRUE
     /* Driver initialization.*/
     usbObjectInit(&USBD1);
     #endif
@@ -633,7 +633,7 @@ void usb_lld_stop(USBDriver *usbp) {
         /* Resets the peripheral.*/
 
         /* Disables the peripheral.*/
-        #if PLATFORM_USB_USE_USB1 == TRUE
+        #if SN32_USB_USE_USB1 == TRUE
         if (&USBD1 == usbp) {
         }
         #endif
