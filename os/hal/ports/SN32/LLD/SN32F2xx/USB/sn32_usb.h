@@ -101,6 +101,8 @@
   SN32_USB->EPCTL[ep] = (mskEPn_ENDP_EN|mskEPn_ENDP_STATE_ACK|bBytecnt)
 #define EPCTL_SET_STAT_RX(ep)                                             \
   SN32_USB->EPCTL[ep] = (mskEPn_ENDP_EN)
+#define EPCTL_SET_STAT_STALL(ep)                                          \
+  SN32_USB->EPCTL[ep] = (mskEPn_ENDP_EN|mskEPn_ENDP_STATE_STALL)
 #define EPCTL_TOGGLE(ep)                                                  \
   SN32_USB->EPTOGGLE = mskEPn_DATA_TOGGLE(ep)
 

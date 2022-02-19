@@ -267,8 +267,7 @@ static void usb_lld_serve_interrupt(USBDriver *usbp)
               usb_lld_set_address(usbp);
               _usb_isr_invoke_event_cb(usbp, USB_EVENT_ADDRESS);
               usbp->state = USB_SELECTED;
-              USB_EPnStall(USB_EP0);
-              //usb_lld_stall_in(usbp, 0);
+              usb_lld_stall_in(usbp, 0);
             }
 
             isp->txcnt += isp->txlast;
@@ -345,7 +344,7 @@ static void usb_lld_serve_interrupt(USBDriver *usbp)
         else if (iwIntFlag & (mskEP0_IN_STALL|mskEP0_OUT_STALL))
         {
             /* EP0_IN_OUT_STALL */
-            USB_EPnStall(USB_EP0);
+            usb_lld_stall_in(usbp, 0);
             SN32_USB->INSTSC = (mskEP0_IN_STALL|mskEP0_OUT_STALL);
         }
     }
@@ -653,7 +652,7 @@ void usb_lld_reset(USBDriver *usbp) {
     /* Set the address to zero during enumeration */
     usbp->address = 0;
     SN32_USB->ADDR  = 0;
-    USB_EPnStall(USB_EP0);
+    usb_lld_stall_in(usbp, 0);
 
     /* EP0 initialization.*/
     usbp->epc[0] = &ep0config;
@@ -745,11 +744,12 @@ void usb_lld_disable_endpoints(USBDriver *usbp) {
  * @notapi
  */
 usbepstatus_t usb_lld_get_status_out(USBDriver *usbp, usbep_t ep) {
+    (void)usbp;
     if (ep > USB_MAX_ENDPOINTS)
         return EP_STATUS_DISABLED;
-    if (!USB_EPnEnabled(ep))
+    if ((SN32_USB->EPCTL[ep] & mskEPn_ENDP_EN) != mskEPn_ENDP_EN)
         return EP_STATUS_DISABLED;
-    if (USB_EPnStalled(ep))
+    if ((SN32_USB->EPCTL[ep] & mskEPn_ENDP_STATE) == mskEPn_ENDP_STATE_STALL)
         return EP_STATUS_STALLED;
     return EP_STATUS_ACTIVE;
 /*
@@ -776,11 +776,12 @@ usbepstatus_t usb_lld_get_status_out(USBDriver *usbp, usbep_t ep) {
  * @notapi
  */
 usbepstatus_t usb_lld_get_status_in(USBDriver *usbp, usbep_t ep) {
+    (void)usbp;
     if (ep > USB_MAX_ENDPOINTS)
         return EP_STATUS_DISABLED;
-    if (!USB_EPnEnabled(ep))
+    if ((SN32_USB->EPCTL[ep] & mskEPn_ENDP_EN) != mskEPn_ENDP_EN)
         return EP_STATUS_DISABLED;
-    if (USB_EPnStalled(ep))
+    if ((SN32_USB->EPCTL[ep] & mskEPn_ENDP_STATE) == mskEPn_ENDP_STATE_STALL)
         return EP_STATUS_STALLED;
     return EP_STATUS_ACTIVE;
 /*
@@ -882,8 +883,10 @@ void usb_lld_start_in(USBDriver *usbp, usbep_t ep)
  */
 void usb_lld_stall_out(USBDriver *usbp, usbep_t ep) {
 
-    USB_EPnStall(ep);
-
+    if (ep == 0 && (SN32_USB->INSTS & mskEP0_PRESETUP)) {
+        return;
+    }
+    EPCTL_SET_STAT_STALL(ep);
 }
 
 /**
@@ -896,8 +899,10 @@ void usb_lld_stall_out(USBDriver *usbp, usbep_t ep) {
  */
 void usb_lld_stall_in(USBDriver *usbp, usbep_t ep) {
 
-   USB_EPnStall(ep);
-
+    if (ep == 0 && (SN32_USB->INSTS & mskEP0_PRESETUP)) {
+        return;
+    }
+    EPCTL_SET_STAT_STALL(ep);
 }
 
 /**
