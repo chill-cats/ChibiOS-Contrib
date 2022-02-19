@@ -105,7 +105,12 @@ void handleNAK(USBDriver* usbp, usbep_t ep);
 /*===========================================================================*/
 
 static void sn32_usb_read_fifo(usbep_t ep, uint8_t *buf, size_t sz, bool intr) {
-    size_t ep_offset = wUSB_EPnOffset[ep];
+    size_t ep_offset;
+    if (ep == 0){
+        ep_offset = 0;
+    } else {
+        ep_offset = SN32_USB->EPBUFOS[ep-1];
+    }
     size_t off;
     size_t chunk;
     uint32_t data;
@@ -145,7 +150,12 @@ static void sn32_usb_read_fifo(usbep_t ep, uint8_t *buf, size_t sz, bool intr) {
 }
 
 static void sn32_usb_write_fifo(usbep_t ep, const uint8_t *buf, size_t sz, bool intr) {
-    size_t ep_offset = wUSB_EPnOffset[ep];
+    size_t ep_offset;
+    if (ep == 0){
+        ep_offset = 0;
+    } else {
+        ep_offset = SN32_USB->EPBUFOS[ep-1];
+    }
     size_t off;
     size_t chunk;
     uint32_t data;
@@ -592,8 +602,16 @@ void usb_lld_start(USBDriver *usbp) {
 #if SN32_USB_USE_USB1
     if (&USBD1 == usbp) {
       /* USB clock enabled.*/
-        sys1EnableUSB();
-        USB_Buf_Init();
+      sys1EnableUSB();
+      /* Initialize USB EP1~EP4 RAM Start address base on 64-bytes. */
+      USB_SET_BUFFER_OFST(1, EP1_BUFFER_OFFSET_VALUE);
+      USB_SET_BUFFER_OFST(2, EP2_BUFFER_OFFSET_VALUE);
+      USB_SET_BUFFER_OFST(3, EP3_BUFFER_OFFSET_VALUE);
+      USB_SET_BUFFER_OFST(4, EP4_BUFFER_OFFSET_VALUE);
+#if (USB_ENDPOINTS_NUMBER > 4)
+      USB_SET_BUFFER_OFST(5, EP5_BUFFER_OFFSET_VALUE);
+      USB_SET_BUFFER_OFST(6, EP6_BUFFER_OFFSET_VALUE);
+#endif /* (USB_ENDPOINTS_NUMBER > 4) */
       /* Powers up the transceiver while holding the USB in reset state.*/
       SN32_USB->SGCTL = mskBUS_J_STATE;
       SN32_USB->CFG = (mskVREG33_EN|mskPHY_EN|mskDPPU_EN|mskSIE_EN|mskESD_EN);

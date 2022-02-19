@@ -105,6 +105,8 @@
   SN32_USB->EPCTL[ep] = (mskEPn_ENDP_EN|mskEPn_ENDP_STATE_STALL)
 #define EPCTL_TOGGLE(ep)                                                  \
   SN32_USB->EPTOGGLE = mskEPn_DATA_TOGGLE(ep)
+#define USB_SET_BUFFER_OFST(ep, addr)                                     \
+  SN32_USB->EPBUFOS[ep-1] = addr
 
 #endif /* SN32_USB_H */
 
