@@ -382,9 +382,8 @@ struct USBDriver {
  */
 #define usb_lld_wakeup_host(usbp)                                           \
   do {                                                                      \
-    osalThreadSleepMilliseconds(3);                                         \
     SN32_USB->SGCTL = (mskBUS_DRVEN|mskBUS_K_STATE);                        \
-    osalThreadSleepMilliseconds(10);                                        \
+    osalThreadSleepMilliseconds(2);                                         \
     SN32_USB->SGCTL &= ~mskBUS_DRVEN;                                       \
   } while (false)
 
