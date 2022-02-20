@@ -634,6 +634,8 @@ void usb_lld_start(USBDriver *usbp) {
       SN32_USB->INTEN = mskBUS_IE;
 
       nvicEnableVector(SN32_USB_NUMBER, SN32_USB_IRQ_PRIORITY);
+      /* Releases the reset state.*/
+      SN32_USB->SGCTL &= ~mskBUS_DRVEN;
     }
 #endif
     /* Reset procedure enforced on driver start.*/
@@ -712,6 +714,11 @@ void usb_lld_set_address(USBDriver *usbp) {
 void usb_lld_init_endpoint(USBDriver *usbp, usbep_t ep) {
     const USBEndpointConfig *epcp = usbp->epc[ep];
 
+    /* Make sure direction flags are not set.*/
+    for(usbep_t ep=1; ep <= USB_MAX_ENDPOINTS; ep++) {
+        SN32_USB->CFG &= ~mskEPn_DIR(ep);
+    }
+
     /* Set the endpoint type. */
     switch (epcp->ep_mode & USB_EP_MODE_TYPE) {
         case USB_EP_MODE_TYPE_ISOC:
@@ -727,7 +734,9 @@ void usb_lld_init_endpoint(USBDriver *usbp, usbep_t ep) {
     /* IN endpoint? */
     if (epcp->in_state != NULL) {
         // Set endpoint direction flag in USB configuration register
-        if(ep > 0 && ep <= USB_MAX_ENDPOINTS) {
+        if(ep ==0) {
+            usb_lld_stall_in(usbp, 0);
+        } else if(ep <= USB_MAX_ENDPOINTS) {
             SN32_USB->CFG &= ~mskEPn_DIR(ep);
         }
     }
@@ -735,16 +744,15 @@ void usb_lld_init_endpoint(USBDriver *usbp, usbep_t ep) {
     /* OUT endpoint? */
     if (epcp->out_state != NULL) {
         // Set endpoint direction flag in USB configuration register
-        if(ep > 0 && ep <= USB_MAX_ENDPOINTS) {
+        if(ep ==0) {
+            usb_lld_stall_out(usbp, 0);
+        } else if(ep <= USB_MAX_ENDPOINTS) {
             SN32_USB->CFG |= mskEPn_DIR(ep);
         }
     }
 
     /* Enable endpoint. */
-    if(ep ==0) {
-        usb_lld_stall_in(usbp, 0);
-    }
-    else if(ep <= USB_MAX_ENDPOINTS) {
+    if(ep <= USB_MAX_ENDPOINTS) {
         SN32_USB->EPCTL[ep] |= mskEPn_ENDP_EN;
     }
 }
@@ -761,6 +769,7 @@ void usb_lld_disable_endpoints(USBDriver *usbp) {
     /* Disabling all endpoints.*/
     for(usbep_t ep=1; ep <= USB_MAX_ENDPOINTS; ep++) {
         SN32_USB->EPCTL[ep] = 0;
+        SN32_USB->CFG &= ~mskEPn_DIR(ep);
     }
 }
 
