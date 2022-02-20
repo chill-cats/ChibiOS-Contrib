@@ -625,7 +625,7 @@ void usb_lld_start(USBDriver *usbp) {
       USB_SET_BUFFER_OFST(6, EP6_BUFFER_OFFSET_VALUE);
 #endif /* (USB_ENDPOINTS_NUMBER > 4) */
       /* Powers up the transceiver while holding the USB in reset state.*/
-      SN32_USB->SGCTL = mskBUS_J_STATE;
+      SN32_USB->SGCTL = (mskBUS_DRVEN|mskBUS_J_STATE);
       SN32_USB->CFG = (mskVREG33_EN|mskPHY_EN|mskDPPU_EN|mskSIE_EN|mskESD_EN);
       /* Set up hardware configuration.*/
       SN32_USB->PHYPRM = 0x80000000;
