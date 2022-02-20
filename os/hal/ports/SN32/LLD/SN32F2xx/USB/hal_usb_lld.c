@@ -715,7 +715,7 @@ void usb_lld_init_endpoint(USBDriver *usbp, usbep_t ep) {
     const USBEndpointConfig *epcp = usbp->epc[ep];
 
     /* Make sure direction flags are not set.*/
-    for(usbep_t ep=1; ep <= USB_MAX_ENDPOINTS; ep++) {
+    if(ep > 0 && ep <= USB_MAX_ENDPOINTS) {
         SN32_USB->CFG &= ~mskEPn_DIR(ep);
     }
 
