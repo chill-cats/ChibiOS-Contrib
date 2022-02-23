@@ -44,7 +44,7 @@
 #define USB_EP0_STATUS_STAGE                USB_EP0_STATUS_STAGE_SW
 
 /**
- * @brief   The address can be changed immediately upon packet reception.
+ * @brief   This device requires the address change after the status packet.
  */
 #define USB_SET_ADDRESS_MODE                USB_LATE_SET_ADDRESS
 
@@ -75,6 +75,13 @@
  */
 #if !defined(SN32_USB_IRQ_PRIORITY) || defined(__DOXYGEN__)
 #define SN32_USB_IRQ_PRIORITY                3
+#endif
+
+/**
+ * @brief   Host wake-up procedure duration.
+ */
+#if !defined(SN32_USB_HOST_WAKEUP_DURATION) || defined(__DOXYGEN__)
+#define SN32_USB_HOST_WAKEUP_DURATION      2
 #endif
 /** @} */
 
@@ -383,7 +390,7 @@ struct USBDriver {
 #define usb_lld_wakeup_host(usbp)                                           \
   do {                                                                      \
     SN32_USB->SGCTL = (mskBUS_DRVEN|mskBUS_K_STATE);                        \
-    osalThreadSleepMilliseconds(2);                                         \
+    osalThreadSleepMilliseconds(SN32_USB_HOST_WAKEUP_DURATION);             \
     SN32_USB->SGCTL &= ~mskBUS_DRVEN;                                       \
   } while (false)
 
