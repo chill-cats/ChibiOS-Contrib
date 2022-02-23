@@ -144,11 +144,6 @@ static void sn32_usb_read_fifo(usbep_t ep, uint8_t *buf, size_t sz, bool intr) {
     size_t chunk;
     uint32_t data;
 
-    //Limit size to max packet size allowed in USB ram
-    //if (sz > wUSB_EPnMaxPacketSize[ep]) {
-    //    sz = wUSB_EPnMaxPacketSize[ep];
-    //}
-
     off = 0;
     while (off != sz) {
         chunk = 4;
@@ -188,11 +183,6 @@ static void sn32_usb_write_fifo(usbep_t ep, const uint8_t *buf, size_t sz, bool 
     size_t off;
     size_t chunk;
     uint32_t data;
-
-    //Limit size to max packet size allowed in USB ram
-    //if (sz > wUSB_EPnMaxPacketSize[ep]) {
-    //    sz = wUSB_EPnMaxPacketSize[ep];
-    //}
 
     off = 0;
 
@@ -234,7 +224,6 @@ static void sn32_usb_write_fifo(usbep_t ep, const uint8_t *buf, size_t sz, bool 
 static void usb_lld_serve_interrupt(USBDriver *usbp)
 {
     uint32_t iwIntFlag;
-    size_t n;
 
     /* Get Interrupt Status and clear immediately. */
     iwIntFlag = SN32_USB->INSTS;
@@ -315,24 +304,24 @@ static void usb_lld_serve_interrupt(USBDriver *usbp)
             }
 
             isp->txcnt += isp->txlast;
-            n = isp->txsize - isp->txcnt;
-            if (n > 0) {
+            size_t txed = isp->txsize - isp->txcnt;
+            if (txed > 0) {
                 /* Transfer not completed, there are more packets to send.*/
-                if (n > epcp->in_maxsize)
-                    n = epcp->in_maxsize;
+                if (txed > epcp->in_maxsize)
+                    txed = epcp->in_maxsize;
 
                 /* Writes the packet from the defined buffer.*/
                 isp->txbuf += isp->txlast;
-                isp->txlast = n;
+                isp->txlast = txed;
 
-                sn32_usb_write_fifo(0, isp->txbuf, n, true);
+                sn32_usb_write_fifo(0, isp->txbuf, txed, true);
 
-                EPCTL_SET_STAT_ACK(0, n);
+                EPCTL_SET_STAT_ACK(0, txed);
             }
             else
             {
-                //EPCTL_SET_STAT_NAK(0); //not needed
-
+                /* Transfer complete, invokes the callback.*/
+                //EPCTL_SET_STAT_NAK(0); //useless mcu resets it anyways
                 _usb_isr_invoke_in_cb(usbp, 0);
             }
             __USB_CLRINSTS(mskEP0_IN);
@@ -343,44 +332,29 @@ static void usb_lld_serve_interrupt(USBDriver *usbp)
             USBOutEndpointState *osp = epcp->out_state;
             /* OUT */
 
-            n = SN32_USB->EPCTL[0] & mskEPn_CNT;
-            if (n > epcp->out_maxsize)
-                n = epcp->out_maxsize;
+            size_t rxed = SN32_USB->EPCTL[0] & mskEPn_CNT;
+            if (rxed) {
 
-            //Just being paranoid here. keep here while debugging EP handling issue
-            //TODO: clean it up when packets are properly handled
-            if (epcp->out_state->rxsize >= n) {
-                //we are ok to copy n bytes to buf
-                sn32_usb_read_fifo(0, osp->rxbuf, n, true);
-                epcp->out_state->rxsize -= n;
-            }
-            else if (epcp->out_state->rxsize > 0) {
-                //we dont have enough buffer to receive n bytes
-                //copy only size availabe on buffer
-                n = epcp->out_state->rxsize;
-                sn32_usb_read_fifo(0, osp->rxbuf, n, true);
-                epcp->out_state->rxsize -= n;
-            }
-            else {
-                //well buffer is 0 size. strange. do nothing.
-                n = 0;
-            }
+                sn32_usb_read_fifo(0, osp->rxbuf, rxed, true);
 
-            epcp->out_state->rxbuf += n;
-            epcp->out_state->rxcnt += n;
-            if (epcp->out_state->rxpkts > 0) {
+                /* Update transaction data */
+                epcp->out_state->rxbuf += rxed;
+                epcp->out_state->rxcnt += rxed;
+                epcp->out_state->rxsize -= rxed;
                 epcp->out_state->rxpkts -= 1;
-            }
 
-            if (epcp->out_state->rxpkts == 0)
-            {
-                //done with transfer
-                //EPCTL_SET_STAT_NAK(0); //useless mcu resets it anyways
-                _usb_isr_invoke_out_cb(usbp, 0);
-            }
-            else {
-                //more to receive
-                EPCTL_SET_STAT_ACK(0, 0);
+                /* The transaction is completed if the specified number of packets
+                   has been received or the current packet is a short packet.*/
+                if ((rxed < epcp->out_maxsize) || (epcp->out_state->rxpkts == 0))
+                {
+                    /* Transfer complete, invokes the callback.*/
+                    //EPCTL_SET_STAT_NAK(0); //useless mcu resets it anyways
+                    _usb_isr_invoke_out_cb(usbp, 0);
+                }
+                else {
+                    /* Transfer not complete, there are more packets to receive.*/
+                    EPCTL_SET_STAT_ACK(0, 0);
+                }
             }
             __USB_CLRINSTS(mskEP0_OUT);
 
@@ -440,7 +414,6 @@ static void usb_lld_serve_interrupt(USBDriver *usbp)
 void handleACK(USBDriver* usbp, usbep_t ep) {
     uint8_t out = 0;
     uint8_t cnt = 0;
-    size_t n;
 
     if(ep > 0 && ep <= USB_MAX_ENDPOINTS) {
         out = ( SN32_USB->CFG & mskEPn_DIR(ep) ) == mskEPn_DIR(ep);
@@ -457,76 +430,57 @@ void handleACK(USBDriver* usbp, usbep_t ep) {
     USBOutEndpointState *osp = epcp->out_state;
 
     // Process based on endpoint direction
-    if(out)
-    {
+    if(out) {
         // Read size of received data
-        n = cnt;
+        size_t rxed = cnt;
+        if (rxed) {
 
-        if (n > epcp->out_maxsize)
-            n = epcp->out_maxsize;
+            sn32_usb_read_fifo(ep, osp->rxbuf, rxed, true);
 
-        //state is NAK already
-        //Just being paranoid here. keep here while debugging EP handling issue
-        //TODO: clean it up when packets are properly handled
-        if (epcp->out_state->rxsize >= n) {
-            //we are ok to copy n bytes to buf
-            sn32_usb_read_fifo(ep, osp->rxbuf, n, true);
-            epcp->out_state->rxsize -= n;
-        }
-        else if (epcp->out_state->rxsize > 0) {
-            //we dont have enough buffer to receive n bytes
-            //copy only size availabe on buffer
-            n = epcp->out_state->rxsize;
-            sn32_usb_read_fifo(ep, osp->rxbuf, n, true);
-            epcp->out_state->rxsize -= n;
-        }
-        else {
-            //well buffer is 0 size. strange. do nothing.
-            n = 0;
-        }
-        osp->rxbuf += n;
-
-        epcp->out_state->rxcnt += n;
-        if (epcp->out_state->rxpkts > 0) {
+            /* Update transaction data */
+            epcp->out_state->rxbuf += rxed;
+            epcp->out_state->rxcnt += rxed;
+            epcp->out_state->rxsize -= rxed;
             epcp->out_state->rxpkts -= 1;
-        }
 
-        if (n < epcp->out_maxsize || epcp->out_state->rxpkts == 0)
-        {
-            _usb_isr_invoke_out_cb(usbp, ep);
-        }
-        else
-        {
-            //not done. keep on receiving
-            EPCTL_SET_STAT_ACK(ep, 0);
+            /* The transaction is completed if the specified number of packets
+               has been received or the current packet is a short packet.*/
+            if ((rxed < epcp->out_maxsize) || (epcp->out_state->rxpkts == 0))
+            {
+                /* Transfer complete, invokes the callback.*/
+                //EPCTL_SET_STAT_NAK(0); //useless mcu resets it anyways
+                _usb_isr_invoke_out_cb(usbp, ep);
+            }
+            else {
+                /* Transfer not complete, there are more packets to receive.*/
+                EPCTL_SET_STAT_ACK(ep, 0);
+            }
         }
     }
-    else
-    {
+    else {
         // Process transmit queue
         isp->txcnt += isp->txlast;
-        n = isp->txsize - isp->txcnt;
+        size_t txed = isp->txsize - isp->txcnt;
 
-        if (n > 0)
+        if (txed > 0)
         {
             /* Transfer not completed, there are more packets to send.*/
-            if (n > epcp->in_maxsize)
+            if (txed > epcp->in_maxsize)
             {
-                n = epcp->in_maxsize;
+                txed = epcp->in_maxsize;
             }
 
             /* Writes the packet from the defined buffer.*/
             isp->txbuf += isp->txlast;
-            isp->txlast = n;
+            isp->txlast = txed;
 
-            sn32_usb_write_fifo(ep, isp->txbuf, n, true);
+            sn32_usb_write_fifo(ep, isp->txbuf, txed, true);
 
-            EPCTL_SET_STAT_ACK(ep, n);
+            EPCTL_SET_STAT_ACK(ep, txed);
         }
-        else
-        {
-            //EPCTL_SET_STAT_NAK(ep); //not needed here it is autoreset to NAK already
-
+        else {
+            /* Transfer complete, invokes the callback.*/
+            //EPCTL_SET_STAT_NAK(ep); //useless mcu resets it anyways
             _usb_isr_invoke_in_cb(usbp, ep);
         }
     }
@@ -888,7 +842,7 @@ void usb_lld_start_out(USBDriver *usbp, usbep_t ep) {
     else
         osp->rxpkts = (uint16_t)((osp->rxsize + usbp->epc[ep]->out_maxsize - 1) /
                                     usbp->epc[ep]->out_maxsize);
-    osp->rxcnt = 0;//haven't received anything yet
+    //osp->rxcnt = 0;//haven't received anything yet
     EPCTL_SET_STAT_ACK(ep, 0);
 }
 
@@ -906,7 +860,6 @@ void usb_lld_start_in(USBDriver *usbp, usbep_t ep)
     USBInEndpointState *isp = usbp->epc[ep]->in_state;
 
     /* Transfer initialization.*/
-    //who handles 0 packet ack on setup?
     n = isp->txsize;
 
     if((n >= 0) || (ep == 0))
