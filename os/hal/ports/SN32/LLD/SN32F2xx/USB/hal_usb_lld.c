@@ -40,7 +40,7 @@
  */
 #if (SN32_USB_USE_USB1 == TRUE) || defined(__DOXYGEN__)
 USBDriver USBD1;
-#endif
+#endif /* SN32_USB_USE_USB1 == TRUE */
 
 /*===========================================================================*/
 /* Driver local variables and types.                                         */
@@ -572,7 +572,7 @@ void handleNAK(USBDriver *usbp, usbep_t ep) {
 /*===========================================================================*/
 /* Driver interrupt handlers and threads.                                    */
 /*===========================================================================*/
-
+#if (SN32_USB_USE_USB1 == TRUE) || defined(__DOXYGEN__)
 /**
  * @brief   SN32 USB Interrupt handler.
  *
@@ -584,7 +584,7 @@ OSAL_IRQ_HANDLER(SN32_USB_HANDLER) {
     usb_lld_serve_interrupt(&USBD1);
     OSAL_IRQ_EPILOGUE();
 }
-
+#endif /* SN32_USB_USE_USB1 == TRUE */
 /*===========================================================================*/
 /* Driver exported functions.                                                */
 /*===========================================================================*/
@@ -598,7 +598,7 @@ void usb_lld_init(void) {
 #if SN32_USB_USE_USB1 == TRUE
     /* Driver initialization.*/
     usbObjectInit(&USBD1);
-#endif
+#endif /* SN32_USB_USE_USB1 == TRUE */
 }
 
 /**
@@ -637,7 +637,7 @@ void usb_lld_start(USBDriver *usbp) {
       /* Releases the reset state.*/
       SN32_USB->SGCTL &= ~mskBUS_DRVEN;
     }
-#endif
+#endif /* SN32_USB_USE_USB1 == TRUE */
     /* Reset procedure enforced on driver start.*/
     usb_lld_reset(usbp);
   }
@@ -659,7 +659,7 @@ void usb_lld_stop(USBDriver *usbp) {
         nvicDisableVector(SN32_USB_NUMBER);
         sys1DisableUSB();
     }
-#endif
+#endif /* SN32_USB_USE_USB1 == TRUE */
   }
 }
 
