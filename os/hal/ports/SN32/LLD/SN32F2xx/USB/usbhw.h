@@ -154,24 +154,6 @@
 
 /***************************************/
 
-/* TODO: orgaize better since this is MCU dependent:
- * 240b has 1+4 EPs/256 Bytes USB SRAM
- * 240 has  1+6 EPs/512 Bytes USB SRAM
- * 260 has  1+4 EPs/256 Bytes USB SRAM
- * */
-// USB EPn Buffer Offset Register
-#define EP1_BUFFER_OFFSET_VALUE                 0x40
-#define EP2_BUFFER_OFFSET_VALUE                 0x80
-#define EP3_BUFFER_OFFSET_VALUE                 0xC0
-#define EP4_BUFFER_OFFSET_VALUE                 0xE0
-
-/* USB Endpoint Max Packet Size */
-#define USB_EP0_PACKET_SIZE                     64  // only 8, 64
-#define USB_EP1_PACKET_SIZE                     0x40
-#define USB_EP2_PACKET_SIZE                     0x40
-#define USB_EP3_PACKET_SIZE                     0x20
-#define USB_EP4_PACKET_SIZE                     0x20
-
 /* USB Endpoint Direction */
 #define USB_DIRECTION_OUT                       0
 #define USB_DIRECTION_IN                        1

@@ -105,6 +105,34 @@ static const USBEndpointConfig ep0config = {
 /* Driver local functions.                                                   */
 /*===========================================================================*/
 
+/**
+ * @brief   Resets the packet memory allocator.
+ *
+ * @param[in] usbp      pointer to the @p USBDriver object
+ */
+static void usb_pm_reset(USBDriver *usbp) {
+
+  /* The first 64 bytes are reserved for the descriptors table. The effective
+     available RAM for endpoint buffers is just 192/448 bytes.*/
+  usbp->pmnext = 64;
+}
+
+/**
+ * @brief   Sets the packet memory allocator.
+ *
+ * @param[in] usbp      pointer to the @p USBDriver object
+ * @param[in] size      size of the packet buffer to allocate
+ * @return              The packet buffer address.
+ */
+static uint32_t usb_pm_alloc(USBDriver *usbp, size_t size) {
+  uint32_t next;
+
+  next = usbp->pmnext;
+  usbp->pmnext += (size + 1) & ~1;
+  osalDbgAssert(usbp->pmnext <= SN32_USB_PMA_SIZE, "PMA overflow");
+  return next;
+}
+
 static void sn32_usb_read_fifo(usbep_t ep, uint8_t *buf, size_t sz, bool intr) {
     size_t ep_offset;
     if (ep == 0){
@@ -615,15 +643,6 @@ void usb_lld_start(USBDriver *usbp) {
     if (&USBD1 == usbp) {
       /* USB clock enabled.*/
       sys1EnableUSB();
-      /* Initialize USB EP1~EP4 RAM Start address base on 64-bytes. */
-      USB_SET_BUFFER_OFST(1, EP1_BUFFER_OFFSET_VALUE);
-      USB_SET_BUFFER_OFST(2, EP2_BUFFER_OFFSET_VALUE);
-      USB_SET_BUFFER_OFST(3, EP3_BUFFER_OFFSET_VALUE);
-      USB_SET_BUFFER_OFST(4, EP4_BUFFER_OFFSET_VALUE);
-#if (USB_ENDPOINTS_NUMBER > 4)
-      USB_SET_BUFFER_OFST(5, EP5_BUFFER_OFFSET_VALUE);
-      USB_SET_BUFFER_OFST(6, EP6_BUFFER_OFFSET_VALUE);
-#endif /* (USB_ENDPOINTS_NUMBER > 4) */
       /* Powers up the transceiver while holding the USB in reset state.*/
       SN32_USB->SGCTL = (mskBUS_DRVEN|mskBUS_J_STATE);
       SN32_USB->CFG = (mskVREG33_EN|mskPHY_EN|mskDPPU_EN|mskSIE_EN|mskESD_EN);
@@ -677,6 +696,9 @@ void usb_lld_reset(USBDriver *usbp) {
     /* Set the address to zero during enumeration.*/
     usbp->address = 0;
     SN32_USB->ADDR  = 0;
+
+    /* Resets the packet memory allocator.*/
+    usb_pm_reset(usbp);
 
     /* EP0 initialization.*/
     usbp->epc[0] = &ep0config;
@@ -733,21 +755,27 @@ void usb_lld_init_endpoint(USBDriver *usbp, usbep_t ep) {
 
     /* IN endpoint? */
     if (epcp->in_state != NULL) {
-        // Set endpoint direction flag in USB configuration register
         if(ep ==0) {
             usb_lld_stall_in(usbp, 0);
         } else if(ep <= USB_MAX_ENDPOINTS) {
+            /* Set endpoint direction flag in USB configuration register.*/
             SN32_USB->CFG &= ~mskEPn_DIR(ep);
+            /* Set endpoint PMA buffer offset in USB configuration register.*/
+            uint32_t buff_addr = usb_pm_alloc(usbp, epcp->in_maxsize);
+            USB_SET_BUFFER_OFST(ep,buff_addr);
         }
     }
 
     /* OUT endpoint? */
     if (epcp->out_state != NULL) {
-        // Set endpoint direction flag in USB configuration register
         if(ep ==0) {
             usb_lld_stall_out(usbp, 0);
         } else if(ep <= USB_MAX_ENDPOINTS) {
+            /* Set endpoint direction flag in USB configuration register.*/
             SN32_USB->CFG |= mskEPn_DIR(ep);
+            /* Set endpoint PMA buffer offset in USB configuration register.*/
+            uint32_t buff_addr = usb_pm_alloc(usbp, epcp->out_maxsize);
+            USB_SET_BUFFER_OFST(ep,buff_addr);
         }
     }
 
@@ -765,6 +793,9 @@ void usb_lld_init_endpoint(USBDriver *usbp, usbep_t ep) {
  * @notapi
  */
 void usb_lld_disable_endpoints(USBDriver *usbp) {
+
+    /* Resets the packet memory allocator.*/
+    usb_pm_reset(usbp);
 
     /* Disabling all endpoints.*/
     for(usbep_t ep=1; ep <= USB_MAX_ENDPOINTS; ep++) {
