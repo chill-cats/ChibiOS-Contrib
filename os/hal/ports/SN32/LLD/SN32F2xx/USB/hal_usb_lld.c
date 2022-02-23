@@ -230,18 +230,17 @@ static void usb_lld_serve_interrupt(USBDriver *usbp)
     /* Keep only PRESETUP & ERR_SETUP flags. */
     SN32_USB->INSTSC = ~(mskEP0_PRESETUP | mskERR_SETUP);
 
-    if ((iwIntFlag == 0) | (iwIntFlag & mskBUS_WAKEUP))
+    if (iwIntFlag == 0)
     {
         //@20160902 add for EMC protection
         SN32_USB->CFG |= (mskESD_EN|mskPHY_EN);
-        __USB_CLRINSTS(mskBUS_WAKEUP);
         return;
     }
 
-    /////////////////////////////////////////////////
-    /* Device Status Interrupt (BusReset, Suspend) */
-    /////////////////////////////////////////////////
-    if (iwIntFlag & (mskBUS_RESET | mskBUS_SUSPEND | mskBUS_RESUME))
+    /////////////////////////////////////////////////////////////////
+    /* Device Status Interrupt (BusReset, Suspend, Resume, Wakeup) */
+    /////////////////////////////////////////////////////////////////
+    if (iwIntFlag & (mskBUS_RESET | mskBUS_SUSPEND | mskBUS_RESUME | mskBUS_WAKEUP))
     {
         if (iwIntFlag & mskBUS_RESET)
         {
@@ -254,14 +253,20 @@ static void usb_lld_serve_interrupt(USBDriver *usbp)
         {
             /* Suspend */
             SN32_USB->CFG &= ~(mskESD_EN|mskPHY_EN);
-            __USB_CLRINSTS(mskBUS_SUSPEND);
             _usb_suspend(usbp);
+            __USB_CLRINSTS(mskBUS_SUSPEND);
         }
         else if(iwIntFlag & mskBUS_RESUME)
         {
             /* Resume */
             SN32_USB->CFG |= (mskESD_EN|mskPHY_EN);
             __USB_CLRINSTS(mskBUS_RESUME);
+        }
+        else if(iwIntFlag & mskBUS_WAKEUP)
+        {
+            /* Wakeup */
+            SN32_USB->CFG |= (mskESD_EN|mskPHY_EN);
+            __USB_CLRINSTS(mskBUS_WAKEUP);
             _usb_wakeup(usbp);
         }
     }
