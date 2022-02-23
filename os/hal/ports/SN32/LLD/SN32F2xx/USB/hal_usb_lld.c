@@ -84,18 +84,6 @@ static const USBEndpointConfig ep0config = {
   .ep_buffers       = 1,
   .setup_buf        = ep0setup_buffer
 };
-#if (USB_USE_WAIT == TRUE) || defined(__DOXYGEN__)
-#define _usb_isr_invoke_tx_complete_cb(usbp, ep) {                          \
-  (usbp)->transmitting &= ~(1 << (ep));                                     \
-  osalSysLockFromISR();                                                     \
-  osalThreadResumeI(&(usbp)->epc[ep]->in_state->thread, MSG_OK);            \
-  osalSysUnlockFromISR();                                                   \
-}
-#else
-#define _usb_isr_invoke_tx_complete_cb(usbp, ep) {                          \
-  (usbp)->transmitting &= ~(1 << (ep));                                     \
-}
-#endif
 
 /*===========================================================================*/
 /* Driver local variables and types.                                         */
