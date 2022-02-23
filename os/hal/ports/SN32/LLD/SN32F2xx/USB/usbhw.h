@@ -154,15 +154,4 @@
 
 /***************************************/
 
-/* USB Endpoint Direction */
-#define USB_DIRECTION_OUT                       0
-#define USB_DIRECTION_IN                        1
-
-/* USB Endpoint Address */
-#define USB_EP0                                 0x0
-#define USB_EP1                                 0x1
-#define USB_EP2                                 0x2
-#define USB_EP3                                 0x3
-#define USB_EP4                                 0x4
-
 #endif  /* __USBHW_H__ */

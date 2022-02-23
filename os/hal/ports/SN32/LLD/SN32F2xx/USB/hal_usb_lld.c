@@ -327,11 +327,11 @@ static void usb_lld_serve_interrupt(USBDriver *usbp)
 
                 sn32_usb_write_fifo(0, isp->txbuf, n, true);
 
-                EPCTL_SET_STAT_ACK(USB_EP0, n);
+                EPCTL_SET_STAT_ACK(0, n);
             }
             else
             {
-                //EPCTL_SET_STAT_NAK(USB_EP0); //not needed
+                //EPCTL_SET_STAT_NAK(0); //not needed
 
                 _usb_isr_invoke_in_cb(usbp, 0);
             }
@@ -351,14 +351,14 @@ static void usb_lld_serve_interrupt(USBDriver *usbp)
             //TODO: clean it up when packets are properly handled
             if (epcp->out_state->rxsize >= n) {
                 //we are ok to copy n bytes to buf
-                sn32_usb_read_fifo(USB_EP0, osp->rxbuf, n, true);
+                sn32_usb_read_fifo(0, osp->rxbuf, n, true);
                 epcp->out_state->rxsize -= n;
             }
             else if (epcp->out_state->rxsize > 0) {
                 //we dont have enough buffer to receive n bytes
                 //copy only size availabe on buffer
                 n = epcp->out_state->rxsize;
-                sn32_usb_read_fifo(USB_EP0, osp->rxbuf, n, true);
+                sn32_usb_read_fifo(0, osp->rxbuf, n, true);
                 epcp->out_state->rxsize -= n;
             }
             else {
@@ -375,12 +375,12 @@ static void usb_lld_serve_interrupt(USBDriver *usbp)
             if (epcp->out_state->rxpkts == 0)
             {
                 //done with transfer
-                //EPCTL_SET_STAT_NAK(USB_EP0); //useless mcu resets it anyways
+                //EPCTL_SET_STAT_NAK(0); //useless mcu resets it anyways
                 _usb_isr_invoke_out_cb(usbp, 0);
             }
             else {
                 //more to receive
-                EPCTL_SET_STAT_ACK(USB_EP0, 0);
+                EPCTL_SET_STAT_ACK(0, 0);
             }
             __USB_CLRINSTS(mskEP0_OUT);
 
