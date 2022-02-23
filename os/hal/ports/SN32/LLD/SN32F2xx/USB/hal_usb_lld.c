@@ -313,8 +313,9 @@ static void usb_lld_serve_interrupt(USBDriver *usbp)
                 /* Writes the packet from the defined buffer.*/
                 isp->txbuf += isp->txlast;
                 isp->txlast = txed;
-
+                osalSysLockFromISR();
                 sn32_usb_write_fifo(0, isp->txbuf, txed, true);
+                osalSysUnlockFromISR();
 
                 EPCTL_SET_STAT_ACK(0, txed);
             }
@@ -334,8 +335,9 @@ static void usb_lld_serve_interrupt(USBDriver *usbp)
 
             size_t rxed = SN32_USB->EPCTL[0] & mskEPn_CNT;
             if (rxed) {
-
+                osalSysLockFromISR();
                 sn32_usb_read_fifo(0, osp->rxbuf, rxed, true);
+                osalSysUnlockFromISR();
 
                 /* Update transaction data */
                 epcp->out_state->rxbuf += rxed;
@@ -434,8 +436,9 @@ void handleACK(USBDriver* usbp, usbep_t ep) {
         // Read size of received data
         size_t rxed = cnt;
         if (rxed) {
-
+            osalSysLockFromISR();
             sn32_usb_read_fifo(ep, osp->rxbuf, rxed, true);
+            osalSysUnlockFromISR();
 
             /* Update transaction data */
             epcp->out_state->rxbuf += rxed;
@@ -473,8 +476,9 @@ void handleACK(USBDriver* usbp, usbep_t ep) {
             /* Writes the packet from the defined buffer.*/
             isp->txbuf += isp->txlast;
             isp->txlast = txed;
-
+            osalSysLockFromISR();
             sn32_usb_write_fifo(ep, isp->txbuf, txed, true);
+            osalSysUnlockFromISR();
 
             EPCTL_SET_STAT_ACK(ep, txed);
         }
@@ -820,8 +824,9 @@ usbepstatus_t usb_lld_get_status_in(USBDriver *usbp, usbep_t ep) {
  */
 
 void usb_lld_read_setup(USBDriver *usbp, usbep_t ep, uint8_t *buf) {
-
+    osalSysLockFromISR();
     sn32_usb_read_fifo(ep, buf, 8, false);
+    osalSysUnlockFromISR();
 }
 
 /**
@@ -868,9 +873,9 @@ void usb_lld_start_in(USBDriver *usbp, usbep_t ep)
             n = (size_t)usbp->epc[ep]->in_maxsize;
 
         isp->txlast = n;
-
+        osalSysLockFromISR();
         sn32_usb_write_fifo(ep, isp->txbuf, n, false);
-
+        osalSysUnlockFromISR();
         nakcnt[ep] = 1;
         EPCTL_SET_STAT_ACK(ep, n);
     }
