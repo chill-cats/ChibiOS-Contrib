@@ -1,5 +1,5 @@
 /*
-    ChibiOS - Copyright (C) 2006..2018 Giovanni Di Sirio
+    ChibiOS - Copyright (C) 2006..2020 Giovanni Di Sirio
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -46,7 +46,7 @@ USBDriver USBD1;
 /* Driver local variables and types.                                         */
 /*===========================================================================*/
 
-static uint8_t nakcnt[USB_MAX_ENDPOINTS + 1] = {0, 0, 0, 0, 0};
+static uint8_t nakcnt[USB_MAX_ENDPOINTS + 1] = {0};
 
 /**
  * @brief   EP0 state.
@@ -123,9 +123,10 @@ static uint32_t usb_pm_alloc(USBDriver *usbp, size_t size) {
 
 static void sn32_usb_read_fifo(usbep_t ep, uint8_t *buf, size_t sz, bool intr) {
     size_t ep_offset;
-    if (ep == 0){
+    if (ep == 0) {
         ep_offset = 0;
-    } else {
+    }
+    else {
         ep_offset = SN32_USB->EPBUFOS[ep-1];
     }
     size_t off;
@@ -138,15 +139,13 @@ static void sn32_usb_read_fifo(usbep_t ep, uint8_t *buf, size_t sz, bool intr) {
         if (off + chunk > sz)
             chunk = sz - off;
 
-        if(intr)
-        {
+        if(intr) {
             SN32_USB->RWADDR = off + ep_offset;
             SN32_USB->RWSTATUS = 0x02;
             while (SN32_USB->RWSTATUS & 0x02);
             data = SN32_USB->RWDATA;
         }
-        else
-        {
+        else {
             SN32_USB->RWADDR2 = off + ep_offset;
             SN32_USB->RWSTATUS2 = 0x02;
             while (SN32_USB->RWSTATUS2 & 0x02);
@@ -163,9 +162,10 @@ static void sn32_usb_read_fifo(usbep_t ep, uint8_t *buf, size_t sz, bool intr) {
 
 static void sn32_usb_write_fifo(usbep_t ep, const uint8_t *buf, size_t sz, bool intr) {
     size_t ep_offset;
-    if (ep == 0){
+    if (ep == 0) {
         ep_offset = 0;
-    } else {
+    }
+    else {
         ep_offset = SN32_USB->EPBUFOS[ep-1];
     }
     size_t off;
@@ -182,15 +182,13 @@ static void sn32_usb_write_fifo(usbep_t ep, const uint8_t *buf, size_t sz, bool 
         //dest, src, size
         memcpy(&data, buf, chunk);
 
-        if(intr)
-        {
+        if(intr) {
             SN32_USB->RWADDR = off + ep_offset;
             SN32_USB->RWDATA = data;
             SN32_USB->RWSTATUS = 0x01;
             while (SN32_USB->RWSTATUS & 0x01);
         }
-        else
-        {
+        else {
             SN32_USB->RWADDR2 = off + ep_offset;
             SN32_USB->RWDATA2 = data;
             SN32_USB->RWSTATUS2 = 0x01;
@@ -209,8 +207,7 @@ static void sn32_usb_write_fifo(usbep_t ep, const uint8_t *buf, size_t sz, bool 
  *
  * @notapi
  */
-static void usb_lld_serve_interrupt(USBDriver *usbp)
-{
+static void usb_lld_serve_interrupt(USBDriver *usbp) {
     uint32_t iwIntFlag;
 
     /* Get Interrupt Status and clear immediately. */
@@ -218,8 +215,7 @@ static void usb_lld_serve_interrupt(USBDriver *usbp)
     /* Keep only PRESETUP & ERR_SETUP flags. */
     SN32_USB->INSTSC = ~(mskEP0_PRESETUP | mskERR_SETUP);
 
-    if (iwIntFlag == 0)
-    {
+    if (iwIntFlag == 0) {
         //@20160902 add for EMC protection
         SN32_USB->CFG |= (mskESD_EN|mskPHY_EN);
         return;
@@ -228,67 +224,58 @@ static void usb_lld_serve_interrupt(USBDriver *usbp)
     /////////////////////////////////////////////////////////////////
     /* Device Status Interrupt (BusReset, Suspend, Resume, Wakeup) */
     /////////////////////////////////////////////////////////////////
-    if (iwIntFlag & (mskBUS_RESET | mskBUS_SUSPEND | mskBUS_RESUME | mskBUS_WAKEUP))
-    {
-        if (iwIntFlag & mskBUS_RESET)
-        {
+    if (iwIntFlag & (mskBUS_RESET | mskBUS_SUSPEND | mskBUS_RESUME | mskBUS_WAKEUP)) {
+        if (iwIntFlag & mskBUS_RESET) {
             /* BusReset */
             SN32_USB->CFG |= (mskESD_EN|mskPHY_EN);
-            __USB_CLRINSTS(mskBUS_RESET);
+            SN32_USB->INSTSC = (mskBUS_RESET);
             _usb_reset(usbp);
         }
-        else if (iwIntFlag & mskBUS_SUSPEND)
-        {
+        else if (iwIntFlag & mskBUS_SUSPEND) {
             /* Suspend */
             SN32_USB->CFG &= ~(mskESD_EN|mskPHY_EN);
             _usb_suspend(usbp);
-            __USB_CLRINSTS(mskBUS_SUSPEND);
+            SN32_USB->INSTSC = (mskBUS_SUSPEND);
         }
-        else if(iwIntFlag & mskBUS_RESUME)
-        {
+        else if(iwIntFlag & mskBUS_RESUME) {
             /* Resume */
             SN32_USB->CFG |= (mskESD_EN|mskPHY_EN);
-            __USB_CLRINSTS(mskBUS_RESUME);
+            SN32_USB->INSTSC = (mskBUS_RESUME);
         }
-        else if(iwIntFlag & mskBUS_WAKEUP)
-        {
+        else if(iwIntFlag & mskBUS_WAKEUP) {
             /* Wakeup */
             SN32_USB->CFG |= (mskESD_EN|mskPHY_EN);
-            __USB_CLRINSTS(mskBUS_WAKEUP);
+            SN32_USB->INSTSC = (mskBUS_WAKEUP);
             _usb_wakeup(usbp);
         }
     }
     /////////////////////////////////////////////////
-    /* Device Status Interrupt (SETUP, IN, OUT)      */
+    /* Device Status Interrupt (SETUP, IN, OUT)    */
     /////////////////////////////////////////////////
     else if (iwIntFlag & mskERR_SETUP) {
-        __USB_CLRINSTS(mskERR_SETUP);
+        SN32_USB->INSTSC = (mskERR_SETUP);
         usb_lld_stall_in(usbp, 0);
     }
-    else if (iwIntFlag & (mskEP0_SETUP|mskEP0_IN|mskEP0_OUT|mskEP0_IN_STALL|mskEP0_OUT_STALL))
-    {
+    else if (iwIntFlag & (mskEP0_SETUP|mskEP0_IN|mskEP0_OUT|mskEP0_IN_STALL|mskEP0_OUT_STALL)) {
         const USBEndpointConfig *epcp = usbp->epc[0];
 
-        if (iwIntFlag & mskEP0_SETUP)
-        {
+        if (iwIntFlag & mskEP0_SETUP) {
             /* SETUP */
             /* Clear receiving in the chibios state machine */
             (usbp)->receiving &= ~1;
-            __USB_CLRINSTS(mskEP0_PRESETUP);
+            SN32_USB->INSTSC = (mskEP0_PRESETUP);
             /* Call SETUP function (ChibiOS core), which prepares
              * for send or receive and releases the buffer
              */
             _usb_isr_invoke_setup_cb(usbp, 0);
-            __USB_CLRINSTS(mskEP0_SETUP);
+            SN32_USB->INSTSC = (mskEP0_SETUP);
         }
-        else if (iwIntFlag & mskEP0_IN)
-        {
+        else if (iwIntFlag & mskEP0_IN) {
             USBInEndpointState *isp = epcp->in_state;
 
             /* IN */
             /* Special case for SetAddress for EP0*/
-            if((((uint16_t)usbp->setup[0]<<8)|usbp->setup[1]) == 0x0500)
-            {
+            if((((uint16_t)usbp->setup[0]<<8)|usbp->setup[1]) == 0x0500) {
               usbp->address = usbp->setup[2];
               usb_lld_set_address(usbp);
               _usb_isr_invoke_event_cb(usbp, USB_EVENT_ADDRESS);
@@ -312,17 +299,15 @@ static void usb_lld_serve_interrupt(USBDriver *usbp)
 
                 EPCTL_SET_STAT_ACK(0, txed);
             }
-            else
-            {
+            else {
                 /* Transfer complete, invokes the callback.*/
                 //EPCTL_SET_STAT_NAK(0); //useless mcu resets it anyways
                 _usb_isr_invoke_in_cb(usbp, 0);
             }
-            __USB_CLRINSTS(mskEP0_IN);
 
+            SN32_USB->INSTSC = (mskEP0_IN);
         }
-        else if (iwIntFlag & mskEP0_OUT)
-        {
+        else if (iwIntFlag & mskEP0_OUT) {
             USBOutEndpointState *osp = epcp->out_state;
             /* OUT */
 
@@ -351,11 +336,10 @@ static void usb_lld_serve_interrupt(USBDriver *usbp)
                     EPCTL_SET_STAT_ACK(0, 0);
                 }
             }
-            __USB_CLRINSTS(mskEP0_OUT);
 
+            SN32_USB->INSTSC = (mskEP0_OUT);
         }
-        else if (iwIntFlag & (mskEP0_IN_STALL))
-        {
+        else if (iwIntFlag & (mskEP0_IN_STALL)) {
             /* EP0_IN_STALL */
             usb_lld_stall_in(usbp, 0);
             SN32_USB->INSTSC = (mskEP0_IN_STALL);
@@ -370,8 +354,7 @@ static void usb_lld_serve_interrupt(USBDriver *usbp)
     /////////////////////////////////////////////////
     /* Device Status Interrupt (EPnACK)            */
     /////////////////////////////////////////////////
-    else if (iwIntFlag & (mskEP4_ACK|mskEP3_ACK|mskEP2_ACK|mskEP1_ACK))
-    {
+    else if (iwIntFlag & (mskEP6_ACK|mskEP5_ACK|mskEP4_ACK|mskEP3_ACK|mskEP2_ACK|mskEP1_ACK)) {
         usbep_t ep;
         // Determine the interrupting endpoint, direction, and clear the interrupt flag
         for(int i=1; i <= USB_MAX_ENDPOINTS; i++) {
@@ -380,10 +363,9 @@ static void usb_lld_serve_interrupt(USBDriver *usbp)
             }
         }
         handleACK(usbp, ep);
-        __USB_CLRINSTS(mskEPn_ACK(ep));
+        SN32_USB->INSTSC = (mskEPn_ACK(ep));
     }
-    else if (iwIntFlag & (mskEP4_NAK|mskEP3_NAK|mskEP2_NAK|mskEP1_NAK))
-    {
+    else if (iwIntFlag & (mskEP6_NAK|mskEP5_NAK|mskEP4_NAK|mskEP3_NAK|mskEP2_NAK|mskEP1_NAK)) {
         usbep_t ep;
         // Determine the interrupting endpoint, direction, and clear the interrupt flag
         for(int i=1; i <= USB_MAX_ENDPOINTS; i++) {
@@ -392,17 +374,16 @@ static void usb_lld_serve_interrupt(USBDriver *usbp)
             }
         }
         handleNAK(usbp, ep);
-        __USB_CLRINSTS(mskEPn_NAK(ep));
+        SN32_USB->INSTSC = (mskEPn_NAK(ep));
     }
 
     /////////////////////////////////////////////////
     /* Device Status Interrupt (SOF)               */
     /////////////////////////////////////////////////
-    if ((iwIntFlag & mskUSB_SOF) && (SN32_USB->INTEN & mskUSB_SOF_IE))
-    {
+    if ((iwIntFlag & mskUSB_SOF) && (SN32_USB->INTEN & mskUSB_SOF_IE)) {
         /* SOF */
         _usb_isr_invoke_sof_cb(usbp);
-        __USB_CLRINSTS(mskUSB_SOF);
+        SN32_USB->INSTSC = (mskUSB_SOF);
     }
 }
 
@@ -708,7 +689,8 @@ void usb_lld_init_endpoint(USBDriver *usbp, usbep_t ep) {
     if (epcp->in_state != NULL) {
         if(ep ==0) {
             usb_lld_stall_in(usbp, 0);
-        } else if(ep <= USB_MAX_ENDPOINTS) {
+        }
+        else if(ep <= USB_MAX_ENDPOINTS) {
             /* Set endpoint direction flag in USB configuration register.*/
             SN32_USB->CFG &= ~mskEPn_DIR(ep);
             /* Set endpoint PMA buffer offset in USB configuration register.*/
@@ -721,7 +703,8 @@ void usb_lld_init_endpoint(USBDriver *usbp, usbep_t ep) {
     if (epcp->out_state != NULL) {
         if(ep ==0) {
             usb_lld_stall_out(usbp, 0);
-        } else if(ep <= USB_MAX_ENDPOINTS) {
+        }
+        else if(ep <= USB_MAX_ENDPOINTS) {
             /* Set endpoint direction flag in USB configuration register.*/
             SN32_USB->CFG |= mskEPn_DIR(ep);
             /* Set endpoint PMA buffer offset in USB configuration register.*/
@@ -840,7 +823,6 @@ void usb_lld_start_out(USBDriver *usbp, usbep_t ep) {
     else
         osp->rxpkts = (uint16_t)((osp->rxsize + usbp->epc[ep]->out_maxsize - 1) /
                                     usbp->epc[ep]->out_maxsize);
-    //osp->rxcnt = 0;//haven't received anything yet
     EPCTL_SET_STAT_ACK(ep, 0);
 }
 
@@ -860,8 +842,8 @@ void usb_lld_start_in(USBDriver *usbp, usbep_t ep)
     /* Transfer initialization.*/
     n = isp->txsize;
 
-    if((n >= 0) || (ep == 0))
-    {
+    if((n >= 0) || (ep == 0)) {
+
         if (n > (size_t)usbp->epc[ep]->in_maxsize)
             n = (size_t)usbp->epc[ep]->in_maxsize;
 
@@ -872,11 +854,9 @@ void usb_lld_start_in(USBDriver *usbp, usbep_t ep)
         nakcnt[ep] = 1;
         EPCTL_SET_STAT_ACK(ep, n);
     }
-    else
-    {
+    else {
         _usb_isr_invoke_in_cb(usbp, ep);
     }
-
 }
 
 /**

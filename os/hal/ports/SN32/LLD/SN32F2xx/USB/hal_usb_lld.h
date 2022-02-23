@@ -81,7 +81,7 @@
  * @brief   Host wake-up procedure duration.
  */
 #if !defined(SN32_USB_HOST_WAKEUP_DURATION) || defined(__DOXYGEN__)
-#define SN32_USB_HOST_WAKEUP_DURATION      2
+#define SN32_USB_HOST_WAKEUP_DURATION        2
 #endif
 /** @} */
 
