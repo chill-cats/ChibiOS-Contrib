@@ -355,26 +355,22 @@ static void usb_lld_serve_interrupt(USBDriver *usbp) {
     /* Device Status Interrupt (EPnACK)            */
     /////////////////////////////////////////////////
     else if (iwIntFlag & (mskEP6_ACK|mskEP5_ACK|mskEP4_ACK|mskEP3_ACK|mskEP2_ACK|mskEP1_ACK)) {
-        usbep_t ep;
         // Determine the interrupting endpoint, direction, and clear the interrupt flag
-        for(int i=1; i <= USB_MAX_ENDPOINTS; i++) {
-            if (iwIntFlag & mskEPn_ACK(i)){
-                ep = i;
+        for(usbep_t ep = 1; ep <= USB_MAX_ENDPOINTS; ep++) {
+            if (iwIntFlag & mskEPn_ACK(ep)){
+                handleACK(usbp, ep);
+                SN32_USB->INSTSC = (mskEPn_ACK(ep));
             }
         }
-        handleACK(usbp, ep);
-        SN32_USB->INSTSC = (mskEPn_ACK(ep));
     }
     else if (iwIntFlag & (mskEP6_NAK|mskEP5_NAK|mskEP4_NAK|mskEP3_NAK|mskEP2_NAK|mskEP1_NAK)) {
-        usbep_t ep;
         // Determine the interrupting endpoint, direction, and clear the interrupt flag
-        for(int i=1; i <= USB_MAX_ENDPOINTS; i++) {
-            if (iwIntFlag & mskEPn_NAK(i)){
-                ep = i;
+        for(usbep_t ep = 1; ep <= USB_MAX_ENDPOINTS; ep++) {
+            if (iwIntFlag & mskEPn_NAK(ep)){
+                handleNAK(usbp, ep);
+                SN32_USB->INSTSC = (mskEPn_NAK(ep));
             }
         }
-        handleNAK(usbp, ep);
-        SN32_USB->INSTSC = (mskEPn_NAK(ep));
     }
 
     /////////////////////////////////////////////////
