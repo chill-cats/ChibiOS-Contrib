@@ -44,6 +44,8 @@
 #define SN32F240B
 #endif
 
+#define SN32_HAS_SPI0             TRUE
+
 /*
  * ST unit
  */

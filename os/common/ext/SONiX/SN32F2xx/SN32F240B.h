@@ -1695,7 +1695,7 @@ typedef struct {                                /*!< (@ 0x4001C000) SN_SPI0 Stru
             uint32_t            : 31;
     } DFDLY_b;
   } ;
-} SN_SPI0_Type;                                 /*!< Size = 36 (0x24)                                                          */
+} SN_SPI_Type;                                 /*!< Size = 36 (0x24)                                                          */
 
 
 
@@ -2872,7 +2872,7 @@ typedef struct {                                /*!< (@ 0x1FFF2228) SN_UC Struct
 #define SN_CT16B0                   ((SN_CT16B0_Type*)         SN_CT16B0_BASE)
 #define SN_CT16B1                   ((SN_CT16B1_Type*)         SN_CT16B1_BASE)
 #define SN_WDT                      ((SN_WDT_Type*)            SN_WDT_BASE)
-#define SN_SPI0                     ((SN_SPI0_Type*)           SN_SPI0_BASE)
+#define SN_SPI0                     ((SN_SPI_Type*)           SN_SPI0_BASE)
 #define SN_I2C0                     ((SN_I2C0_Type*)           SN_I2C0_BASE)
 #define SN_UART0                    ((SN_UART0_Type*)          SN_UART0_BASE)
 #define SN_UART1                    ((SN_UART1_Type*)          SN_UART1_BASE)
